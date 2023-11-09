@@ -21,29 +21,57 @@ double **make_matrix(int m, int n)
 
 void printRes(int m, int n, double *coefficients, double *values, double **matrix)
 {
-
-     printf("\nC-coefficients:\n");
-     for (int i = 0; i < m; i++)
+     printf("\nMax z:\n");
+     for (int i = 0; i < n; i++)
      {
-          printf("%10.3lf", coefficients[i]);
-     }
-
-     printf("\nB-values:\n");
-     for (int i = 0; i < m; i++)
-     {
-          printf("%10.3lf", values[i]);
-     }
-
-     // Print Matrix
-     printf("\nMatrix:\n");
-     for (int i = 0; i < m; i++)
-     {
-          for (int j = 0; j < m; j++)
+          if (i == n - 1)
           {
-               printf("%10.3lf", matrix[i][j]);
+          printf("%.3lf %s%d \n", coefficients[i], "x", i);
           }
-          printf("\n");
+          else
+          {
+               printf("%10.3lf %s%d %s", coefficients[i], "x", i, "+ ");
+          }
      }
+
+     printf("\nConstraints:\n");
+     for (int i = 0; i < m; i++)
+     {
+          for (int j = 0; j < n; j++)
+          {
+               if (j == 0)
+               {
+                    printf("%10.3lf %s%d", matrix[i][j], "x", j);
+               }
+               else
+               {
+                    if (matrix[i][j] >= 0)
+                    {
+                         printf(" + %.3lf %s%d", matrix[i][j], "x", j);
+                    }
+                    else
+                    {
+                         printf(" - %.3lf %s%d", -matrix[i][j], "x", j);
+                    }
+               }
+          }
+          printf(" %s %.3lf\n", "\u2264", values[i]);
+     }
+}
+
+void free_matrix(double **matrix, int m)
+{
+     // Free the allocated memory from each row and the variable
+     for (int i = 0; i < m; i++)
+     {
+          free(matrix[i]);
+     }
+     free(matrix);
+}
+
+void free_array(double *array)
+{
+     free(array);
 }
 
 int main(int argc, char **argv)
@@ -60,7 +88,7 @@ int main(int argc, char **argv)
      }
 
      // Read  the c-coefficients
-     double c_coefficients[n];
+     double *c_coefficients = (double *)calloc(n, sizeof(double));
      for (int i = 0; i < n; i++)
      {
           scanf("%lf", &c_coefficients[i]);
@@ -68,7 +96,7 @@ int main(int argc, char **argv)
 
      // Create matrix
      double **matrix = make_matrix(m, n);
-     
+
      // Fill matrix
      for (int i = 0; i < m; i++)
      {
@@ -83,7 +111,7 @@ int main(int argc, char **argv)
      }
 
      // Read  the c-coefficients
-     double b_values[m];
+     double *b_values = (double *)calloc(m, sizeof(double));
      for (int i = 0; i < m; i++)
      {
           scanf("%lf", &b_values[i]);
@@ -91,12 +119,9 @@ int main(int argc, char **argv)
 
      printRes(m, n, c_coefficients, b_values, matrix);
 
-     // Free the allocated memory from each row and the variable
-     for (int i = 0; i < m; i++)
-     {
-          free(matrix[i]);
-     }
-     free(matrix);
+     free_matrix(matrix, m);
+     free_array(c_coefficients);
+     free_array(b_values);
 
      return 0;
 }
