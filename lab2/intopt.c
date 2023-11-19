@@ -17,17 +17,20 @@ struct simplex_t
 };
 
 // Declaration
+
+void print_res(struct simplex_t *s);
+
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y);
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h);
 
 void pivot(struct simplex_t *s, int row, int col);
 
-int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
+int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
 
 int select_nonbasic(struct simplex_t *s);
 
-int init(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
+int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
 
 int select_nonbasic(struct simplex_t *s)
 {
@@ -42,27 +45,27 @@ int select_nonbasic(struct simplex_t *s)
     return -1;
 }
 
-int init(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
+int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
 {
     int i, k;
 
-    *s = (struct simplex_t *)malloc(sizeof(struct simplex_t));
+    s = (struct simplex_t *)malloc(sizeof(struct simplex_t));
 
-    (*s)->m = m;     /* nbr constraints */
-    (*s)->n = n;     /* nbr decision variables */
-    (*s)->var = var; /* variables, Needs to be freed */
-    (*s)->a = a;     /* A matrix */
-    (*s)->b = b;     /* b array */
-    (*s)->x = x;     /* x array */
-    (*s)->c = c;     /* c array */
-    (*s)->y = y;     /* double */
+    s->m = m;     /* nbr constraints */
+    s->n = n;     /* nbr decision variables */
+    s->var = var; /* variables, Needs to be freed */
+    s->a = a;     /* A matrix */
+    s->b = b;     /* b array */
+    s->x = x;     /* x array */
+    s->c = c;     /* c array */
+    s->y = y;     /* double */
 
-    if ((*s)->var == NULL)
+    if (s->var == NULL)
     {
-        (*s)->var = malloc((m + n + 1) * sizeof(int));
+        s->var = malloc((m + n + 1) * sizeof(int));
         for (i = 0; i < m + n; i++)
         {
-            (*s)->var[i] = i;
+            s->var[i] = i;
         }
     }
 
@@ -150,13 +153,13 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
     struct simplex_t *s;
     int i, row, col;
 
-    if (!initial(&s, m, n, a, b, c, x, y, var)) // if init fails
+    if (!initial(s, m, n, a, b, c, x, y, var)) // if init fails
     {
         free(s->var);
         return NAN;
     }
 
-    print(s); // print the inital stage of the table
+    print_res(s); // print the inital stage of the table
 
     // pain method
     // iterates as long as there exists a nonbasic variable (col) that can be selected to improve the objective function
@@ -182,7 +185,7 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
         }
 
         pivot(s, row, col);
-        print(s);
+        print_res(s);
     }
 
     if (h == 0) /* Finalization baserat på variabel h, uppdatera s */
@@ -226,108 +229,13 @@ double simplex(int m, int n, double **a, double *b, double *c, double *x, double
     return xsimplex(m, n, a, b, c, x, y, NULL, 0);
 }
 
-int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
+int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
 {
     int i, j, k;
     double w;
     k = init(s, m, n, a, b, c, x, y, var);
 
     return 1; // we assume that b[k] >  0
-
-    /*     if (b[k] >= 0)
-        {
-            return 1;
-        } */
-    /* prepare(s, k); */
-
-    /*
-    n = s->n;
-    s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
-    for (i = 0; i < m + n; i++)
-    {
-        if (s->var[i] = m + n - 1)
-        {
-            if (fabs(s->x[i]) > EPSILON)
-            {
-                free(s->x);
-                free(s->c);
-                return 0;
-            }
-            else
-            {
-                break;
-            }
-        }
-    }
-
-    if (i >= n)
-    {
-        for (j = k = 0; k < n; k++)
-        {
-            if (fabs(s->a[i - n][k]) > fabs(s->a[i - n][j]))
-            {
-                j = k;
-            }
-        }
-        pivot(s, i - n, j);
-        i = j;
-    }
-
-    if (i < n - 1)
-    {
-        k = s->var[i];
-        s->var[i] = s->var[n - 1];
-        s->var[n - 1] = k;
-        for (k = 0; k < m; k++)
-        {
-            w = s->a[k][n - 1];
-            s->a[k][n - 1] = s->a[k][i];
-            s->a[k][i] = w;
-        }
-    }
-    else
-    {
-        free(s->c);
-        s->c = c;
-        s->y = y;
-        for (k = n - 1; k < n + m + 1; k++)
-        {
-            s->var[k] = s->var[k + 1];
-        }
-        n = s->n = s->n - 1;
-        int *t = malloc(n * sizeof(double));
-        for (k = 0; k < n; k++)
-        {
-            for (j = 0; j < n; j++)
-            {
-                if (k == s->var[j])
-                {
-                    t[j] = t[j] + s->c[k];
-                }
-            }
-            for (j = 0; j < m; j++)
-            {
-                if (s->var[n + j] == k)
-                {
-                    break;
-                }
-            }
-            s->y = s->y + s->c[k] * s->b[j];
-            for (i = 0; i < n; i++)
-            {
-                t[i] = t[i] - s->c[k] * s->a[j][i];
-            }
-        next_k:;
-        }
-        for (i = 0; i < n; i++)
-        {
-            s->c[i] = t[i];
-        }
-        free(t);
-        free(s->x);
-        return 1;
-    }
-    */
 }
 
 void free_matrix(double **a, int m)
@@ -339,7 +247,7 @@ void free_matrix(double **a, int m)
     free(a);
 }
 
-void print(struct simplex_t *s)
+void print_res(struct simplex_t *s)
 {
     printf("\n---------------------------------\n");
     printf("\nMax z:\n");
@@ -404,7 +312,7 @@ int main()
         a[i] = calloc(n, sizeof(double));
     }
 
-    // Read  the coefficients
+    // Read the coefficients
     for (int i = 0; i < n; i++)
     {
         scanf("%lf", &c[i]);
