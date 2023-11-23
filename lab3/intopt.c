@@ -16,9 +16,20 @@ struct simplex_t
      double y;
 };
 
-// Declaration
+/*
 
-void print_res(struct simplex_t *s);
+154
+
+-276,903
+
+NAN
+
+INF
+
+*/
+
+// Declaration
+void print(struct simplex_t *s);
 
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y);
 
@@ -26,11 +37,11 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
 
 void pivot(struct simplex_t *s, int row, int col);
 
-int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
+int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
 
 int select_nonbasic(struct simplex_t *s);
 
-int init(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
+int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var);
 
 int select_nonbasic(struct simplex_t *s)
 {
@@ -45,29 +56,40 @@ int select_nonbasic(struct simplex_t *s)
      return -1;
 }
 
-int init(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
+int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
 {
      int i, k;
 
-     *s = (struct simplex_t *)malloc(sizeof(struct simplex_t));
+     s->m = m;     /* nbr constraints */
+     s->n = n;     /* nbr decision variables */
+     s->var = var; /* variables, not yet allocated array */
+     s->a = a;     /* A matrix */
+     s->b = b;     /* b array */
+     s->x = x;     /* x array */
+     s->c = c;     /* c array */
+     s->y = y;     /* double */
 
-     (*s)->m = m;     /* nbr constraints */
-     (*s)->n = n;     /* nbr decision variables */
-     (*s)->var = var; /* variables, Needs to be freed */
-     (*s)->a = a;     /* A matrix */
-     (*s)->b = b;     /* b array */
-     (*s)->x = x;     /* x array */
-     (*s)->c = c;     /* c array */
-     (*s)->y = y;     /* double */
+     /*  "stack smashing detected" is an indication that a buffer overflow or stack corruption has occurred in your program. This typically happens when you overwrite the boundaries of a stack-allocated array or buffer, leading to unpredictable behavior and potential security vulnerabilities. */
+     /* int local_array[10];
 
-     if ((*s)->var == NULL)
+     for (i = 0; i < 11; i += 1)
+          local_array[i] = i */
+     ;
+
+     /* If the variable is declared globally it won't check if its out of bounds, fsanitize will check it */
+
+     if (s->var == NULL)
      {
-          (*s)->var = malloc((m + n + 1) * sizeof(int));
+          s->var = (int *)malloc((m + n + 1) * sizeof(int));
           for (i = 0; i < m + n; i++)
+          // if loop index is not initialized it can behave unpredictably based on the intial value, or uninitialized.
+          // A "conditional jump" transfers the program's execution to a different part of the code based on a condition.
           {
-               (*s)->var[i] = i;
+               s->var[i] = i;
           }
      }
+
+     i = 1;
 
      for (k = 0; i < m; i++)
      {
@@ -87,6 +109,7 @@ void pivot(struct simplex_t *s, int row, int col)
      double *c = s->c;
      int m = s->m;
      int n = s->n;
+
      int i, j, t; // Loop variables
 
      t = s->var[col];
@@ -143,30 +166,20 @@ void pivot(struct simplex_t *s, int row, int col)
 
      b[row] = b[row] / a[row][col];
      a[row][col] = 1 / a[row][col];
-     printf("pivot: ");
-     printf("row: %d, ", row);
-     printf("col: %d\n", col);
 }
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h)
 {
-     struct simplex_t *s;
+     struct simplex_t s; // automatically allocates memory on the stack
      int i, row, col;
 
      if (!initial(&s, m, n, a, b, c, x, y, var)) // if init fails
      {
-          free(s->var);
+          free(s.var);
           return NAN;
      }
 
-     print_res(s); // print the inital stage of the table
-
-     // pain method
-     // iterates as long as there exists a nonbasic variable (col) that can be selected to improve the objective function
-     /* In each iteration, it finds a suitable basic variable (row) for pivoting based on the ratios of coefficients.
-         If no suitable basic variable is found, it returns INFINITY indicating an unbounded solution.
-         Otherwise, it performs the pivot operation on the tableau and prints the updated tableau. */
-     while ((col = select_nonbasic(s)) >= 0)
+     while ((col = select_nonbasic(&s)) >= 0)
      {
           row = -1;
 
@@ -180,31 +193,30 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
 
           if (row < 0)
           {
-               free(s->var);
+               free(s.var);
                return INFINITY;
           }
 
-          pivot(s, row, col);
-          print_res(s);
+          pivot(&s, row, col);
      }
 
-     if (h == 0) /* Finalization baserat på variabel h, uppdatera s */
+     if (h == 0) // Finalization baserat på variabel h, uppdatera s
      {
           for (i = 0; i < n; i++)
           {
-               if (s->var[i] < n)
+               if (s.var[i] < n)
                {
-                    x[s->var[i]] = 0;
+                    x[s.var[i]] = 0;
                }
           }
           for (i = 0; i < m; i++)
           {
-               if (s->var[n + 1] < n)
+               if (s.var[n + 1] < n)
                {
-                    x[s->var[n + i]] = s->b[i];
+                    x[s.var[n + i]] = s.b[i];
                }
           }
-          free(s->var);
+          free(s.var);
      }
      else
      {
@@ -214,19 +226,16 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
           }
           for (i = n; i < n + m; i++)
           {
-               x[i] = s->b[i - n];
+               x[i] = s.b[i - n];
           }
      }
 
-     double result = s->y;
-
-     free(s);
-     return result;
+     return s.y;
 }
 
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y)
 {
-     return xsimplex(m, n, a, b, c, x, y, NULL, 0);
+     return xsimplex(m, n, a, b, c, x, y, NULL, y);
 }
 
 void prepare(struct simplex_t *s, int k)
@@ -235,32 +244,42 @@ void prepare(struct simplex_t *s, int k)
      int n = s->n;
      int i;
 
-     for (i = m + n; i > n; i -= 1)
+     // Shift variable in the var array
+     for (i = m + n; i > n; i--)
      {
           s->var[i] = s->var[i - 1];
      }
 
+     // Update the var array with the new variable
      s->var[n] = m + n;
 
+     // Increment n
      n = n + 1;
 
+     // Update the last column in the A matrix
      for (i = 0; i < m; i++)
      {
           s->a[i][n - 1] = -1;
      }
 
-     s->x = malloc((m + n) * sizeof(double));
-     s->c = malloc((n) * sizeof(double));
-     s->c[n-1] = -1;
+     //  Reallocate
+     s->x = (double *)calloc(m + n, sizeof(double));
+     s->c = (double *)calloc(n, sizeof(double));
+
+     s->c[n - 1] = -1;
      s->n = n;
+
      pivot(s, k, n - 1);
 }
 
-int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
+int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
 {
      int i, j, k;
      double w;
-     k = init((*s), m, n, a, b, c, x, y, var);
+
+     k = init(s, m, n, a, b, c, x, y, var);
+
+     print(s);
 
      if (b[k] >= 0)
      {
@@ -270,16 +289,18 @@ int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c
      prepare(s, k);
 
      n = s->n;
+
      s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
+
      for (i = 0; i < m + n; i++)
      {
-          if (s->var[i] = m + n - 1)
+          if (s->var[i] == m + n - 1)
           {
                if (fabs(s->x[i]) > EPSILON)
                {
                     free(s->x);
                     free(s->c);
-                    return 0;
+                    return 0; // infeasible
                }
                else
                {
@@ -303,6 +324,7 @@ int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c
 
      if (i < n - 1)
      {
+          // x_n+m is nonbasic and not last, swap column i and n-1
           k = s->var[i];
           s->var[i] = s->var[n - 1];
           s->var[n - 1] = k;
@@ -315,58 +337,64 @@ int initial(struct simplex_t **s, int m, int n, double **a, double *b, double *c
      }
      else
      {
-          free(s->c);
-          s->c = c;
-          s->y = y;
-          for (k = n - 1; k < n + m + 1; k++)
+          // x_n+m is nonbasic and last, forget it
+     }
+
+     free(s->c);
+     s->c = c;
+     s->y = y;
+     for (k = n - 1; k < n + m - 1; k++)
+     {
+          s->var[k] = s->var[k + 1];
+     }
+     
+     n = s->n = s->n - 1;
+
+     double *t = calloc(n, sizeof(double));
+
+     for (k = 0; k < n; k++)
+     {
+          for (j = 0; j < n; j++)
           {
-               s->var[k] = s->var[k + 1];
+               if (k == s->var[j])
+               {
+                    // x_k is nonbasic, add c[k]
+                    t[j] = t[j] + s->c[k];
+                    goto next_k;
+               }
           }
-          n = s->n = s->n - 1;
-          int *t = malloc(n * sizeof(double));
-          for (k = 0; k < n; k++)
+
+          // x_k is basic
+          for (j = 0; j < m; j++)
           {
-               for (j = 0; j < n; j++)
+               if (s->var[n + j] == k)
                {
-                    if (k == s->var[j])
-                    {
-                         t[j] = t[j] + s->c[k];
-                    }
+                    // x_k is at row j
+                    break;
                }
-               for (j = 0; j < m; j++)
-               {
-                    if (s->var[n + j] == k)
-                    {
-                         break;
-                    }
-               }
-               s->y = s->y + s->c[k] * s->b[j];
-               for (i = 0; i < n; i++)
-               {
-                    t[i] = t[i] - s->c[k] * s->a[j][i];
-               }
-          next_k:;
           }
+
+          s->y = s->y + s->c[k] * s->b[j];
+
           for (i = 0; i < n; i++)
           {
-               s->c[i] = t[i];
+               t[i] = t[i] - s->c[k] * s->a[j][i];
           }
-          free(t);
-          free(s->x);
-          return 1;
+          
+     next_k:;
      }
-}
 
-void free_matrix(double **a, int m)
-{
-     for (int i = 0; i < m; i++)
+     for (i = 0; i < n; i++)
      {
-          free(a[i]);
+          s->c[i] = t[i];
      }
-     free(a);
+
+     free(t);
+     free(s->x);
+     return 1;
 }
 
-void print_res(struct simplex_t *s)
+void print(struct simplex_t *s)
 {
      printf("\n---------------------------------\n");
      printf("\nMax z:\n");
@@ -403,8 +431,9 @@ void print_res(struct simplex_t *s)
                     }
                }
           }
-          printf(" %s %.3lf\n", "\u2264", *s->a[i]);
+          printf(" %s %.3lf\n", "\u2264", s->b[i]);
      }
+     printf("\n");
 }
 
 int main()
@@ -414,50 +443,50 @@ int main()
      double *b;
      double *c;
      double *x;
-     size_t i;
+     int i, j;
 
      // Scan input
      scanf("%d", &m);
      scanf("%d", &n);
 
+     // Allocate memory for arrays
      a = (double **)calloc(m, sizeof(double *));
      b = (double *)calloc(m, sizeof(double));
      c = (double *)calloc(n, sizeof(double));
      x = (double *)calloc(n + 1, sizeof(double));
 
-     // create matrix
-     for (int i = 0; i < m; i += 1)
-     {
-          a[i] = calloc(n, sizeof(double));
-     }
-
      // Read the coefficients
-     for (int i = 0; i < n; i++)
+     for (i = 0; i < n; i++)
      {
           scanf("%lf", &c[i]);
      }
 
-     // Fill matrix
-     for (int i = 0; i < m; i++)
+     // Create and fill matrix
+     for (i = 0; i < m; i++)
      {
-          for (size_t j = 0; j < n; j++)
+          a[i] = (double *)calloc(n + 1, sizeof(double));
+          for (j = 0; j < n; j++)
           {
                scanf("%lf", &a[i][j]);
           }
      }
 
      // Read b-values
-     for (int i = 0; i < m; i++)
+     for (i = 0; i < m; i++)
      {
           scanf("%lf", &b[i]);
      }
 
-     // Execute
-     printf("result: %f\n", simplex(m, n, a, b, c, x, 0));
+     // Execute simplex
+     printf("result: %f\n\n", simplex(m, n, a, b, c, x, 0));
 
-     // terminate
+     // Terminate
+     for (i = 0; i < m; i++)
+     {
+          free(a[i]);
+     }
+     free(a);
      free(b);
      free(c);
      free(x);
-     free_matrix(a, m);
 }
