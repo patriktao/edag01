@@ -380,7 +380,7 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
           {
                t[i] = t[i] - s->c[k] * s->a[j][i];
           }
-          
+
      next_k:;
      }
 
@@ -397,7 +397,7 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
 void print(struct simplex_t *s)
 {
      printf("\n---------------------------------\n");
-     printf("\nMax z:\n");
+     printf("\nMax z: ");
      for (int i = 0; i < s->n; i++)
      {
           if (i == s->n - 1)
@@ -406,7 +406,7 @@ void print(struct simplex_t *s)
           }
           else
           {
-               printf("%10.3lf %s%d %s", s->c[i], "x", i, "+ ");
+               printf("%.3lf %s%d %s", s->c[i], "x", i, "+ ");
           }
      }
 
@@ -433,7 +433,7 @@ void print(struct simplex_t *s)
           }
           printf(" %s %.3lf\n", "\u2264", s->b[i]);
      }
-     printf("\n");
+     printf("\n---------------------------------\n");
 }
 
 int main()
