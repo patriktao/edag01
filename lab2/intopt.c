@@ -17,9 +17,6 @@ struct simplex_t
 };
 
 // Declaration
-
-void print_res(struct simplex_t *s);
-
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y);
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h);
@@ -49,8 +46,6 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
 {
     int i, k;
 
-    s = (struct simplex_t *)malloc(sizeof(struct simplex_t));
-
     s->m = m;     /* nbr constraints */
     s->n = n;     /* nbr decision variables */
     s->var = var; /* variables, Needs to be freed */
@@ -59,6 +54,8 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
     s->x = x;     /* x array */
     s->c = c;     /* c array */
     s->y = y;     /* double */
+
+    print(&s);
 
     if (s->var == NULL)
     {
@@ -87,7 +84,7 @@ void pivot(struct simplex_t *s, int row, int col)
     double *c = s->c;
     int m = s->m;
     int n = s->n;
-    int i, j, t; // Loop variables
+    int i, j, t;
 
     t = s->var[col];
     s->var[col] = s->var[n + row];
@@ -150,23 +147,16 @@ void pivot(struct simplex_t *s, int row, int col)
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h)
 {
-    struct simplex_t *s;
+    struct simplex_t s;
     int i, row, col;
 
-    if (!initial(s, m, n, a, b, c, x, y, var)) // if init fails
+    if (!initial(&s, m, n, a, b, c, x, y, var)) // if init fails
     {
-        free(s->var);
+        free(s.var);
         return NAN;
     }
 
-    print_res(s); // print the inital stage of the table
-
-    // pain method
-    // iterates as long as there exists a nonbasic variable (col) that can be selected to improve the objective function
-    /* In each iteration, it finds a suitable basic variable (row) for pivoting based on the ratios of coefficients.
-        If no suitable basic variable is found, it returns INFINITY indicating an unbounded solution.
-        Otherwise, it performs the pivot operation on the tableau and prints the updated tableau. */
-    while ((col = select_nonbasic(s)) >= 0)
+    while ((col = select_nonbasic(&s)) >= 0)
     {
         row = -1;
 
@@ -180,31 +170,30 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
 
         if (row < 0)
         {
-            free(s->var);
+            free(s.var);
             return INFINITY;
         }
 
-        pivot(s, row, col);
-        print_res(s);
+        pivot(&s, row, col);
     }
 
     if (h == 0) /* Finalization baserat på variabel h, uppdatera s */
     {
         for (i = 0; i < n; i++)
         {
-            if (s->var[i] < n)
+            if (s.var[i] < n)
             {
-                x[s->var[i]] = 0;
+                x[s.var[i]] = 0;
             }
         }
         for (i = 0; i < m; i++)
         {
-            if (s->var[n + 1] < n)
+            if (s.var[n + 1] < n)
             {
-                x[s->var[n + i]] = s->b[i];
+                x[s.var[n + i]] = s.b[i];
             }
         }
-        free(s->var);
+        free(s.var);
     }
     else
     {
@@ -214,14 +203,11 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
         }
         for (i = n; i < n + m; i++)
         {
-            x[i] = s->b[i - n];
+            x[i] = s.b[i - n];
         }
     }
 
-    double result = s->y;
-
-    free(s);
-    return result;
+    return s.y;
 }
 
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y)
@@ -233,21 +219,12 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
 {
     int i, j, k;
     double w;
-    k = init(s, m, n, a, b, c, x, y, var);
+    k = init(&s, m, n, a, b, c, x, y, var);
 
     return 1; // we assume that b[k] >  0
 }
 
-void free_matrix(double **a, int m)
-{
-    for (int i = 0; i < m; i++)
-    {
-        free(a[i]);
-    }
-    free(a);
-}
-
-void print_res(struct simplex_t *s)
+void print(struct simplex_t *s)
 {
     printf("\n---------------------------------\n");
     printf("\nMax z:\n");
@@ -284,8 +261,9 @@ void print_res(struct simplex_t *s)
                 }
             }
         }
-        printf(" %s %.3lf\n", "\u2264", *s->a[i]);
+        printf(" %s %.3lf\n", "\u2264", s->b[i]);
     }
+    printf("\n");
 }
 
 int main()
@@ -306,13 +284,13 @@ int main()
     c = (double *)calloc(n, sizeof(double));
     x = (double *)calloc(n + 1, sizeof(double));
 
-    // create matrix
+    // Create matrix
     for (int i = 0; i < m; i += 1)
     {
         a[i] = calloc(n, sizeof(double));
     }
 
-    // Read the coefficients
+    // Read  the coefficients
     for (int i = 0; i < n; i++)
     {
         scanf("%lf", &c[i]);
@@ -340,5 +318,9 @@ int main()
     free(b);
     free(c);
     free(x);
-    free_matrix(a, m);
+    for (int i = 0; i < m; i++)
+    {
+        free(a[i]);
+    }
+    free(a);
 }
