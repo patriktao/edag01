@@ -303,10 +303,12 @@ void add(struct set_t *h, struct node_t *p)
 {
      int i;
 
+     // if there is place, allocate
      if (h->count < h->alloc)
      {
           for (i = 0; i < h->alloc; i++)
           {
+               /* Find the first place that is not null and add */
                if ((h->nodes)[i] == NULL)
                {
                     h->nodes[i] = p;
@@ -317,8 +319,8 @@ void add(struct set_t *h, struct node_t *p)
      }
      else
      {
-          // Double the size
-          h->alloc = h->alloc + 1;
+          // Allocate on more place size
+          h->alloc += 1;
           h->nodes = (struct node_t **)realloc(h->nodes, h->alloc * sizeof(struct node_t *));
 
           // initialize the newly allocated
@@ -327,7 +329,7 @@ void add(struct set_t *h, struct node_t *p)
                h->nodes[i] = NULL;
           }
 
-          // Update values
+          // Add the new node and update count
           h->nodes[h->count] = p;
           h->count++;
      }
@@ -483,27 +485,32 @@ void pivot(struct simplex_t *s, int row, int col)
      double *c = s->c;
      int m = s->m;
      int n = s->n;
-     int i, j, t;
+     int i, j; // Loop variables
 
-     t = s->var[col];
+     // avoid rendundancy
+     double pivotValue = a[row][col];
+
+     int t = s->var[col];
      s->var[col] = s->var[n + row];
      s->var[n + row] = t;
-     s->y = s->y + c[col] * b[row] / a[row][col];
+
+     s->y = s->y + c[col] * b[row] / pivotValue;
 
      for (i = 0; i < n; i++)
      {
           if (i != col)
           {
-               c[i] = c[i] - c[col] * a[row][i] / a[row][col];
+               c[i] = c[i] - c[col] * a[row][i] / pivotValue;
           }
      }
-     c[col] = -c[col] / a[row][col];
+
+     c[col] = -c[col] / pivotValue;
 
      for (i = 0; i < m; i++)
      {
           if (i != row)
           {
-               b[i] = b[i] - a[i][col] * b[row] / a[row][col];
+               b[i] = b[i] - a[i][col] * b[row] / pivotValue;
           }
      }
 
@@ -515,7 +522,7 @@ void pivot(struct simplex_t *s, int row, int col)
                {
                     if (j != col)
                     {
-                         a[i][j] = a[i][j] - a[i][col] * a[row][j] / a[row][col];
+                         a[i][j] = a[i][j] - a[i][col] * a[row][j] / pivotValue;
                     }
                }
           }
@@ -525,7 +532,7 @@ void pivot(struct simplex_t *s, int row, int col)
      {
           if (i != row)
           {
-               a[i][col] = -a[i][col] / a[row][col];
+               a[i][col] = -a[i][col] / pivotValue;
           }
      }
 
@@ -533,12 +540,12 @@ void pivot(struct simplex_t *s, int row, int col)
      {
           if (i != col)
           {
-               a[row][i] = a[row][i] / a[row][col];
+               a[row][i] = a[row][i] / pivotValue;
           }
      }
 
-     b[row] = b[row] / a[row][col];
-     a[row][col] = 1 / a[row][col];
+     b[row] = b[row] / pivotValue;
+     a[row][col] = 1 / pivotValue;
 }
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h)

@@ -1,8 +1,10 @@
 {
-    "C_Cpp.errorSquiggles": "enabled",
-    "files.associations": {
-        "limits": "c",
-        "compare": "c",
-        "cmath": "c"
-    }
+  "C_Cpp.errorSquiggles": "enabled",
+  "files.associations": {
+    "limits": "c",
+    "compare": "c",
+    "cmath": "c"
+  },
+  "editor.formatOnSave": true,
+  "C_Cpp.clang_format_fallbackStyle": "Visual Studio"
 }
