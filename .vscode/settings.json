@@ -3,7 +3,10 @@
   "files.associations": {
     "limits": "c",
     "compare": "c",
-    "cmath": "c"
+    "cmath": "c",
+    "ctype.h": "c",
+    "cstring": "c",
+    "stdlib.h": "c"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_fallbackStyle": "Visual Studio"

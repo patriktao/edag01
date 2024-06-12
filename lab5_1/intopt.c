@@ -490,61 +490,56 @@ void pivot(struct simplex_t *s, int row, int col)
      // avoid rendundancy
      double pivotValue = a[row][col];
 
+     // new changes
+     double cCol = c[col];
+     double bRow = b[row];
+
      int t = s->var[col];
      s->var[col] = s->var[n + row];
      s->var[n + row] = t;
 
-     s->y = s->y + c[col] * b[row] / pivotValue;
+     s->y = s->y + cCol * bRow / pivotValue;
 
+     // update c
      for (i = 0; i < n; i++)
      {
           if (i != col)
           {
-               c[i] = c[i] - c[col] * a[row][i] / pivotValue;
+               c[i] = c[i] - cCol * a[row][i] / pivotValue;
           }
      }
 
-     c[col] = -c[col] / pivotValue;
+     c[col] = -cCol / pivotValue;
 
+     // update b and a at the same time
      for (i = 0; i < m; i++)
      {
           if (i != row)
           {
-               b[i] = b[i] - a[i][col] * b[row] / pivotValue;
-          }
-     }
+               double aICol = a[i][col];
+               b[i] -= aICol * bRow / pivotValue;
 
-     for (i = 0; i < m; i++)
-     {
-          if (i != row)
-          {
                for (j = 0; j < n; j++)
                {
                     if (j != col)
                     {
-                         a[i][j] = a[i][j] - a[i][col] * a[row][j] / pivotValue;
+                         a[i][j] = a[i][j] - aICol * a[row][j] / pivotValue;
                     }
                }
+               a[i][col] = -aICol / pivotValue;
           }
      }
 
-     for (i = 0; i < m; i++)
-     {
-          if (i != row)
-          {
-               a[i][col] = -a[i][col] / pivotValue;
-          }
-     }
-
+     // Update a[row][i] and b[row]
      for (i = 0; i < n; i++)
      {
           if (i != col)
           {
-               a[row][i] = a[row][i] / pivotValue;
+               a[row][i] /= pivotValue;
           }
      }
 
-     b[row] = b[row] / pivotValue;
+     b[row] /= pivotValue;
      a[row][col] = 1 / pivotValue;
 }
 
