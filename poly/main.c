@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include "poly.h"
 
-static void poly_test(const char* a, const char* b)
+static void poly_test(const char *a, const char *b)
 {
-	poly_t*		p;
-	poly_t*		q;
-	poly_t*		r;
+	poly_t *p;
+	poly_t *q;
+	poly_t *r;
 
 	printf("Begin polynomial test of (%s) * (%s)\n", a, b);
 
