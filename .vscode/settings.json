@@ -6,7 +6,9 @@
     "cmath": "c",
     "ctype.h": "c",
     "cstring": "c",
-    "stdlib.h": "c"
+    "stdlib.h": "c",
+    "__locale": "c",
+    "string": "c"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_fallbackStyle": "Visual Studio"

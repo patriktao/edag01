@@ -4,48 +4,121 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define N (10)
+#define N 10
 #define MAX_LEN 256
+
+void reset_states(int *idx, int *num, bool *building, bool *err)
+{
+     *idx = 0;
+     *num = 0;
+     *building = false;
+     *err = false;
+}
+
+void handle_error(int line, char c)
+{
+     printf("line %d: error at %c\n", line, c);
+}
 
 int main(void)
 {
-	char line[MAX_LEN]; // Increase buffer size to accommodate MAX_LEN
-	int nbrs[N];
-	char ops[N];
+     unsigned int stack[N];          // Stack to store numbers and results
+     int idx = 0, num = 0, calc = 0; // Stack index and calculation variable
+     int c;
+     bool building = false;
+     bool err = false;
+     int line = 1;
 
-	// for each line
-	{
-		char c;
+     while ((c = getchar()) != EOF)
+     {
+          if (err)
+          {                   // Skip to end of line if error
+               if (c != '\n') // continue until we reach end of line
+               {
+                    continue;
+               }
+               line++;
+               reset_states(&idx, &num, &building, &err);
+               continue;
+          }
 
-		while (fgets(line, MAX_LEN, stdin))
-		{
-			int nbr_index = 0;
-			int ops_index = 0;
-			int num = 0;
-			printf("Line: %s", line);
+          if (isdigit(c))
+          {
+               num = num * 10 + (c - '0');
+               building = true;
+               continue;
+          }
 
-			// Print parsed numbers and operators
-			printf("\n----------------------------------------------\n");
-			printf("Numbers: ");
-			for (int i = 0; i < nbr_index; i++)
-			{
-				printf("%d ", nbrs[i]);
-			}
+          if (building)
+          {
+               if (idx == N)
+               {
+                    printf("line %d: error at %d\n", line, num);
+                    err = true;
+                    continue;
+               }
+               stack[idx++] = num;
+               num = 0;
+               building = false;
+          }
 
-			printf("\nOperators: ");
-			for (int i = 0; i < ops_index; i++)
-			{
-				printf("%c ", ops[i]);
-			}
+          if (c == ' ')
+          {
+               continue;
+          }
+          else if (c == '\n')
+          {
+               if (idx != 1)
+               {
+                    printf("line %d: error at \\n\n", line);
+               }
+               else
+               {
+                    printf("line %d: %d\n", line, stack[0]);
+               }
+               line++;
+               reset_states(&idx, &num, &building, &err);
+               continue;
+          }
+          else if (c == '+' || c == '-' || c == '*' || c == '/')
+          {
+               if (idx < 2)
+               {
+                    handle_error(line, c);
+                    err = true;
+                    continue;
+               }
+               int op2 = stack[--idx]; // pop 1
+               int op1 = stack[--idx]; // pop 2
 
-			// check whether operators and lines are empty:
-			if (ops_index == 0 || nbr_index == 0)
-			{
-				printf("\nerror at: \\n");
-			}
-			printf("\n----------------------------------------------\n");
-			printf("\n\n"); // readability
-		}
-	}
-	return 0;
+               switch (c)
+               {
+               case '+':
+                    calc = op1 + op2;
+                    break;
+               case '-':
+                    calc = op1 - op2;
+                    break;
+               case '*':
+                    calc = op1 * op2;
+                    break;
+               case '/':
+                    if (op2 == 0)
+                    {
+                         printf("line %d: error at /\n", line);
+                         err = true;
+                         continue;
+                    }
+                    calc = op1 / op2;
+                    break;
+               }
+               stack[idx++] = calc; // add res
+          }
+          else
+          {
+               handle_error(line, c);
+               err = true;
+          }
+     }
+     return 0;
 }
