@@ -1,5 +1,5 @@
 {
-  "C_Cpp.errorSquiggles": "enabled",
+  "C_Cpp.errorSquiggles": "disabled",
   "files.associations": {
     "limits": "c",
     "compare": "c",
@@ -8,7 +8,8 @@
     "cstring": "c",
     "stdlib.h": "c",
     "__locale": "c",
-    "string": "c"
+    "string": "c",
+    "array": "c"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_fallbackStyle": "Visual Studio"
