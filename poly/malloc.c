@@ -2,29 +2,33 @@
 #include <string.h>
 #include <stdlib.h>
 
-static size_t	mallocs;
-static size_t	frees;
+static size_t mallocs;
+static size_t frees;
 
 static void check_memory_leaks(void)
 {
-	size_t	leaks;
+	size_t leaks;
 
-	leaks = mallocs-frees;
+	leaks = mallocs - frees;
 
 	if (leaks == 0)
 		return;
 
 	fprintf(stderr, "----------------------------------------------\n");
 
-	if (frees > mallocs) {
+	if (frees > mallocs)
+	{
 		fprintf(stderr, "undefined behavior detected: more frees"
-			" (%zu) than allocations (%zu)\n", frees, mallocs);
-	} else {
+					 " (%zu) than allocations (%zu)\n",
+			   frees, mallocs);
+	}
+	else
+	{
 
 		fprintf(stderr, "fatal program error detected:      memory leak");
 
 		fprintf(stderr, "\nnumber of allocations in use:  %15zu\n",
-			mallocs-frees);
+			   mallocs - frees);
 	}
 
 	fprintf(stderr, "\ngoodbye, terminating abnormally...\n");
@@ -45,9 +49,9 @@ static void init(void)
 	initialized = 1;
 }
 
-void* __check_malloc(size_t s)
+void *__check_malloc(size_t s)
 {
-	void*		p;
+	void *p;
 
 	if (s == 0)
 		return NULL;
@@ -62,10 +66,10 @@ void* __check_malloc(size_t s)
 	return p;
 }
 
-void* __check_calloc(size_t s, size_t n)
+void *__check_calloc(size_t s, size_t n)
 {
-	void*		p;
-	size_t		total;
+	void *p;
+	size_t total;
 
 	total = s * n;
 
@@ -79,20 +83,23 @@ void* __check_calloc(size_t s, size_t n)
 	return p;
 }
 
-void __check_free(void* p)
+void __check_free(void *p)
 {
-	if (p != NULL) {
+	if (p != NULL)
+	{
 		frees += 1;
 		free(p);
 	}
 }
 
-void* __check_realloc(void* p, size_t s)
+void *__check_realloc(void *p, size_t s)
 {
-	if (s == 0) {
+	if (s == 0)
+	{
 		__check_free(p);
 		return NULL;
-	} else if (p == NULL)
+	}
+	else if (p == NULL)
 		return __check_malloc(s);
 	else
 		return realloc(p, s);

@@ -9,7 +9,9 @@
     "stdlib.h": "c",
     "__locale": "c",
     "string": "c",
-    "array": "c"
+    "array": "c",
+    "stdio.h": "c",
+    "poly.h": "c"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_fallbackStyle": "Visual Studio"

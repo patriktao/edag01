@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include "poly.h"
+
 #define MAX_TERMS 10
 
 typedef struct
@@ -12,11 +14,11 @@ typedef struct
      int power;
 } term_t;
 
-typedef struct
+struct poly_t
 {
      term_t terms[MAX_TERMS];
      int term_count;
-} poly_t;
+};
 
 void add_term(poly_t *poly, int coefficient, int power)
 {
@@ -41,7 +43,7 @@ void add_term(poly_t *poly, int coefficient, int power)
 
 poly_t *new_poly_from_string(const char *s)
 {
-     poly_t *poly = calloc(1, sizeof(poly_t));
+     poly_t *poly = malloc(sizeof(poly_t));
 
      if (!poly)
      {
@@ -119,7 +121,7 @@ void free_poly(poly_t *poly)
 
 poly_t *mul(poly_t *a, poly_t *b)
 {
-     poly_t *result = calloc(1, sizeof(poly_t));
+     poly_t *result = malloc(sizeof(poly_t));
 
      if (!result)
      {
@@ -139,7 +141,7 @@ poly_t *mul(poly_t *a, poly_t *b)
      return result;
 }
 
-void print_poly(const poly_t *poly)
+void print_poly(poly_t *poly)
 {
      for (int i = 0; i < poly->term_count; i++)
      {
@@ -164,7 +166,7 @@ void print_poly(const poly_t *poly)
           // print the term
           if (coeff != 1 || power == 0)
           {
-               printf("%d ", coeff);
+               printf("%d", coeff);
           }
 
           if (power > 0)
@@ -177,35 +179,4 @@ void print_poly(const poly_t *poly)
           }
      }
      printf("\n");
-}
-
-static void poly_test(char *a, char *b)
-{
-     poly_t *p;
-     poly_t *q;
-     poly_t *r;
-     printf("Begin polynomial test of (%s) * (%s)\n", a, b);
-
-     p = new_poly_from_string(a);
-     q = new_poly_from_string(b);
-
-     print_poly(p);
-     print_poly(q);
-
-     r = mul(p, q);
-
-     print_poly(r);
-
-     free_poly(p);
-     free_poly(q);
-     free_poly(r);
-
-     printf("End polynomial test of (%s) * (%s)\n\n\n", a, b);
-}
-
-int main(void)
-{
-     poly_test("x^2 - 7x + 1", "3x + 2");
-     poly_test("x^10000000 + 2", "2x^2 + 3x + 4");
-     return 0;
 }
