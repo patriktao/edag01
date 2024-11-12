@@ -36,46 +36,49 @@ bool is_prime(int n)
      return true;
 }
 
-void add_word(WordCount words[], int *word_count, const char *word)
+void add_word(WordCount *words[], int total_words, const char *word)
 {
-     // Check if the word already exists
-     for (int i = 0; i < *word_count; i++)
+     // increase word count if it already exist on stack
+     for (int i = 0; i < total_words; i++)
      {
-          if (strcmp(words[i].word, word) == 0)
+          if (words[i]->word == *word)
           {
-               words[i].count++;
+               words[i]->count++; // increase word count by 1
                return;
           }
      }
 
-     // Add new word
-     strcpy(words[*word_count].word, word);
-     words[*word_count].count = 1;
-     (*word_count)++;
+     // otherwise add the word to stack
+     strcpy(words[total_words]->word, *word); // add 'word' to words[total_words].word
+     words[total_words]->count = 1;           // initialize the word count to 1
+     (total_words)++;                         // increase total_words by 1
 }
 
-void delete_word(WordCount words[]);
+void delete_word(WordCount *words[], int total_words, const char *word)
+{
+}
 
 int main(void)
 {
-     char word[256];      // Buffer to store each line
-     int line_number = 1; // Initialize line counter
-     WordCount words[MAX_WORDS];
-     int word_count = 0;
+     char word[256];             // Buffer to store each line
+     int line_nbr = 1;           // Initialize line counter
+     WordCount words[MAX_WORDS]; // Stack of words
+     int total_words = 0;
 
      while (fgets(word, sizeof(word), stdin) != NULL) // for each line
      {
-          word[strcspn(word, "\n")] = '\0';
+          word[strcspn(word, "\n")] = '\0'; // removes \n from the string
           printf("%s", word);
 
-          if (is_prime(line_number))
+          if (is_prime(line_nbr))
           {
-               add_word(words, &word_count, word);
+               add_word(words, total_words, word);
           }
           else
           {
-                    }
+               delete_word(words, total_words, word);
+          }
 
-          line_number++;
+          line_nbr++;
      }
 }
