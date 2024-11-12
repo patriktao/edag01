@@ -51,8 +51,12 @@ poly_t *new_poly_from_string(const char *s)
           return NULL;
      }
 
-     int coefficient, power = 0;
-     bool isNegative, hasCoefficient = false;
+     poly->term_count = 0;
+
+     int coefficient = 0;
+     int power = 0;
+     bool isNegative = false;
+     bool hasCoefficient = false;
 
      for (size_t i = 0; s[i] != '\0'; i++)
      {
@@ -122,6 +126,8 @@ void free_poly(poly_t *poly)
 poly_t *mul(poly_t *a, poly_t *b)
 {
      poly_t *result = malloc(sizeof(poly_t));
+
+     result->term_count = 0;
 
      if (!result)
      {

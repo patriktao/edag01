@@ -1,7 +1,7 @@
 CC	= cc
-CFLAGS	= -std=c11 -pedantic -Wall -Werror -g -O3 -funsigned-char
+CFLAGS = -std=c11 -pedantic -Wall -Werror -g -O3 -funsigned-char
 OUT	= a.out
-FILE	= poly
+FILE = poly
 
 execute: compile
 	./a.out > output

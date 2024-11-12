@@ -54,9 +54,9 @@ void add_word(WordCount words[], int *word_count, const char *word)
      (*word_count)++;
 }
 
-void delete_word(WordCount words[])
+void delete_word(WordCount words[]);
 
-    int main(void)
+int main(void)
 {
      char word[256];      // Buffer to store each line
      int line_number = 1; // Initialize line counter
@@ -74,7 +74,7 @@ void delete_word(WordCount words[])
           }
           else
           {
-          }
+                    }
 
           line_number++;
      }
