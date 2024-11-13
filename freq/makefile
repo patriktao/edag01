@@ -6,8 +6,8 @@ FILE	= freq
 execute: compile
 	./a.out < input > output
 	diff output correct
-	./a.out < input.z > output
-	diff output correct.z
+	./a.out < input.z > output.z
+	diff output.z correct.z
 
 compile: clean $(FILE).o malloc.o
 	$(CC) freq.o malloc.o
