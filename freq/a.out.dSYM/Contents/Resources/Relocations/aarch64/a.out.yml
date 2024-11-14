@@ -2,9 +2,9 @@
 triple:          'arm64-apple-darwin'
 binary-path:     a.out
 relocations:
-  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _is_prime, symObjAddr: 0x0, symBinAddr: 0x1000036F0, symSize: 0x1A0 }
-  - { offsetInCU: 0x54, offset: 0x54, size: 0x8, addend: 0x0, symName: _is_prime, symObjAddr: 0x0, symBinAddr: 0x1000036F0, symSize: 0x1A0 }
-  - { offsetInCU: 0xA6, offset: 0xA6, size: 0x8, addend: 0x0, symName: _add_word, symObjAddr: 0x1A0, symBinAddr: 0x100003890, symSize: 0x1E8 }
-  - { offsetInCU: 0x110, offset: 0x110, size: 0x8, addend: 0x0, symName: _delete_word, symObjAddr: 0x388, symBinAddr: 0x100003A78, symSize: 0xF0 }
-  - { offsetInCU: 0x16C, offset: 0x16C, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x478, symBinAddr: 0x100003B68, symSize: 0x310 }
+  - { offsetInCU: 0x26, offset: 0x26, size: 0x8, addend: 0x0, symName: _is_prime, symObjAddr: 0x0, symBinAddr: 0x100003728, symSize: 0x1A0 }
+  - { offsetInCU: 0x54, offset: 0x54, size: 0x8, addend: 0x0, symName: _is_prime, symObjAddr: 0x0, symBinAddr: 0x100003728, symSize: 0x1A0 }
+  - { offsetInCU: 0xA6, offset: 0xA6, size: 0x8, addend: 0x0, symName: _add_word, symObjAddr: 0x1A0, symBinAddr: 0x1000038C8, symSize: 0x1D8 }
+  - { offsetInCU: 0x102, offset: 0x102, size: 0x8, addend: 0x0, symName: _delete_word, symObjAddr: 0x378, symBinAddr: 0x100003AA0, symSize: 0xF0 }
+  - { offsetInCU: 0x15E, offset: 0x15E, size: 0x8, addend: 0x0, symName: _main, symObjAddr: 0x468, symBinAddr: 0x100003B90, symSize: 0x2F4 }
 ...

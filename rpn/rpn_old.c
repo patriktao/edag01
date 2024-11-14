@@ -2,13 +2,16 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define N 10
+#define MAX_LEN 256
 
-void reset_states(int *idx, int *num, bool *err)
+void reset_states(int *idx, int *num, bool *building, bool *err)
 {
      *idx = 0;
-     *num = -1; // Set to -1 to indicate no current number being parsed
+     *num = 0;
+     *building = false;
      *err = false;
 }
 
@@ -19,48 +22,51 @@ void handle_error(int line, char c)
 
 int main(void)
 {
-     unsigned int stack[N];
-     int idx = 0, num = -1, calc = 0; // num initialized to -1 to indicate no number yet
+     unsigned int stack[N];          // Stack to store numbers and results
+     int idx = 0, num = 0, calc = 0; // Stack index and calculation variable
      int c;
+     bool building = false;
      bool err = false;
      int line = 1;
 
      while ((c = getchar()) != EOF)
      {
           if (err)
-          {
-               if (c != '\n')
+          {                   // Skip to end of line if error
+               if (c != '\n') // continue until we reach end of line
                {
                     continue;
                }
                line++;
-               reset_states(&idx, &num, &err);
+               reset_states(&idx, &num, &building, &err);
                continue;
           }
-          else if (isdigit(c))
+
+          if (isdigit(c))
           {
-               if (num == -1)
-                    num = 0; // Start a new number if not already in progress
+               building = true;
                num = num * 10 + (c - '0');
                continue;
           }
-          else if (num != -1) // Number parsing complete when encountering space or operator
+
+          if (building)
           {
                if (idx == N)
                {
-                    handle_error(line, '0' + num); // Use '0' + num to show parsed number
+                    printf("line %d: error at %d\n", line, num);
                     err = true;
                     continue;
                }
                stack[idx++] = num;
-               num = -1;
+               num = 0;
+               building = false;
           }
 
-          if (c == ' ') // skip white space
+          if (c == ' ')
           {
                continue;
           }
-          else if (c == '\n') // Reached end of line, print result
+          else if (c == '\n')
           {
                if (idx != 1)
                {
@@ -71,10 +77,10 @@ int main(void)
                     printf("line %d: %d\n", line, stack[0]);
                }
                line++;
-               reset_states(&idx, &num, &err);
+               reset_states(&idx, &num, &building, &err);
                continue;
           }
-          else if (c == '+' || c == '-' || c == '*' || c == '/') // execute operation
+          else if (c == '+' || c == '-' || c == '*' || c == '/')
           {
                if (idx < 2)
                {
@@ -83,8 +89,8 @@ int main(void)
                     continue;
                }
 
-               int op2 = stack[--idx];
-               int op1 = stack[--idx];
+               int op2 = stack[--idx]; // pop 1
+               int op1 = stack[--idx]; // pop 2
 
                switch (c)
                {
@@ -107,7 +113,7 @@ int main(void)
                     calc = op1 / op2;
                     break;
                }
-               stack[idx++] = calc;
+               stack[idx++] = calc; // add res
           }
           else
           {

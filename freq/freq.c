@@ -36,12 +36,13 @@ bool is_prime(int n)
 
 void add_word(WordCount *words, int *total_words, const char *word)
 {
-     if (*total_words >= MAX_WORDS)
+     if (*total_words >= MAX_WORDS) // Check if limit is reached
      {
           fprintf(stderr, "Error: Word limit reached.\n");
           return;
      }
-     for (int i = 0; i < *total_words; i++)
+
+     for (int i = 0; i < *total_words; i++) // Search for existing word
      {
           if (strcmp(words[i].word, word) == 0 && words[i].count > 0)
           {
@@ -52,8 +53,8 @@ void add_word(WordCount *words, int *total_words, const char *word)
      }
      printf("added %s\n", word);
 
-     size_t word_len = strlen(word) + 1;
-     words[*total_words].word = malloc(word_len);
+     words[*total_words].word = malloc(MAX_WORD_LEN);
+
      if (words[*total_words].word == NULL)
      {
           fprintf(stderr, "Memory allocation failed.\n");
@@ -86,12 +87,10 @@ int main(void)
 {
      char word[MAX_WORD_LEN];
      int line_nbr = 1;
-     WordCount words[MAX_WORDS];
-     memset(words, 0, sizeof(words));
+     WordCount words[MAX_WORDS] = {0}; // Initialize the array to zero
 
      int total_words = 0;
      int index = 0;
-
      int c;
 
      while ((c = getchar()) != EOF)
@@ -112,7 +111,6 @@ int main(void)
 
                // Reset for the next word
                index = 0;
-               memset(word, '\0', sizeof(word));
                line_nbr++;
           }
           else if (index < MAX_WORD_LEN - 1)

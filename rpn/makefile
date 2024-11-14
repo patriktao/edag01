@@ -1,7 +1,7 @@
 CC	= cc
 CFLAGS	= -std=c11 -pedantic -Wall -Werror -g -O3 -funsigned-char
 OUT	= a.out
-FILE	= rpn2
+FILE	= rpn
 
 execute: compile
 	./a.out < input > output
