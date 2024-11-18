@@ -7,7 +7,7 @@ CFLAGS	= -g
 
 LDFLAGS	= -g -pthread -lm
 
-OBJS	= intopt.o main.o error.o
+OBJS = intopt.o main.o error.o
 
 main: $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS)

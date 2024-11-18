@@ -818,3 +818,101 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
      free(s->x);
      return 1;
 }
+
+void print(struct simplex_t *s)
+{
+     printf("\n---------------------------------\n");
+     printf("\nMax z: ");
+     for (int i = 0; i < s->n; i++)
+     {
+          if (i == s->n - 1)
+          {
+               printf("%.3lf %s%d \n", s->c[i], "x", i);
+          }
+          else
+          {
+               printf("%.3lf %s%d %s", s->c[i], "x", i, "+ ");
+          }
+     }
+
+     printf("\nConstraints:\n");
+     for (int i = 0; i < s->m; i++)
+     {
+          for (int j = 0; j < s->n; j++)
+          {
+               if (j == 0)
+               {
+                    printf("%10.3lf %s%d", s->a[i][j], "x", j);
+               }
+               else
+               {
+                    if (s->a[i][j] >= 0)
+                    {
+                         printf(" + %.3lf %s%d", s->a[i][j], "x", j);
+                    }
+                    else
+                    {
+                         printf(" - %.3lf %s%d", -s->a[i][j], "x", j);
+                    }
+               }
+          }
+          printf(" %s %.3lf\n", "\u2264", s->b[i]);
+     }
+     printf("\n---------------------------------\n");
+}
+
+int main()
+{
+     int m, n;
+     double **a;
+     double *b;
+     double *c;
+     double *x;
+     int i, j;
+
+     // Scan input
+     scanf("%d", &m);
+     scanf("%d", &n);
+
+     // Allocate memory for arrays
+     a = calloc(m, sizeof(double *));
+     b = calloc(m, sizeof(double));
+     c = calloc(n, sizeof(double));
+     x = calloc(n + 1, sizeof(double));
+
+     // Read the coefficients
+     for (i = 0; i < n; i++)
+     {
+          scanf("%lf", &c[i]);
+     }
+
+     // Create and fill matrix
+     for (i = 0; i < m; i++)
+     {
+          a[i] = calloc(n + 1, sizeof(double));
+          for (j = 0; j < n; j++)
+          {
+               scanf("%lf", &a[i][j]);
+          }
+     }
+
+     // Read b-values
+     for (i = 0; i < m; i++)
+     {
+          scanf("%lf", &b[i]);
+     }
+
+     // Execute algorithm
+     double max_z = intopt(m, n, a, b, c, x);
+     printf("result: %f\n\n", max_z);
+
+     // Terminate
+     for (i = 0; i < m; i++)
+     {
+          free(a[i]);
+     }
+     free(a);
+     free(b);
+     free(c);
+     free(x);
+}
