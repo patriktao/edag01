@@ -44,6 +44,7 @@ struct set_t
 };
 
 // Declaration
+void print(struct simplex_t *s);
 
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y);
 
@@ -319,7 +320,7 @@ void add(struct set_t *h, struct node_t *p)
      else
      {
           // Allocate on more place size
-          h->alloc *= 2;
+          h->alloc += 1;
           h->nodes = (struct node_t **)realloc(h->nodes, h->alloc * sizeof(struct node_t *));
 
           // initialize the newly allocated
@@ -484,53 +485,112 @@ void pivot(struct simplex_t *s, int row, int col)
      double *c = s->c;
      int m = s->m;
      int n = s->n;
-     int i, j; // Loop variables
+     double maxSteepness = -1.0;
+     int pivotCol = -1;
 
-     // avoid rendundancy
-     double pivotValue = a[row][col];
-
-     // new changes
-     double cCol = c[col];
-     double bRow = b[row];
-
-     int t = s->var[col];
-     s->var[col] = s->var[n + row];
-     s->var[n + row] = t;
-
-     s->y = s->y + cCol * bRow / pivotValue;
-
-     // update c
-     for (i = 0; i < n; i++)
+     // Find the column with the steepest edge
+     for (int j = 0; j < n; j++)
      {
-          c[i] = c[i] - cCol * a[row][i] / pivotValue;
+          if (c[j] < 0)
+          { // Only consider columns where c[j] < 0
+               double edge = 0.0;
+
+               // Approximate l^1 norm by iterating over the first few rows (adjust as needed)
+               int limit = n < m ? n : m; // Iterate up to the first n rows or m, whichever is smaller
+               for (int i = 0; i < limit; i += 4)
+               { // Unroll loop manually to help the compiler
+                    if (i < limit)
+                         edge += fabs(a[i][j]);
+                    if (i + 1 < limit)
+                         edge += fabs(a[i + 1][j]);
+                    if (i + 2 < limit)
+                         edge += fabs(a[i + 2][j]);
+                    if (i + 3 < limit)
+                         edge += fabs(a[i + 3][j]);
+               }
+
+               // Select the column with the largest steepness (l^1 norm)
+               if (edge > maxSteepness)
+               {
+                    maxSteepness = edge;
+                    pivotCol = j;
+               }
+          }
      }
 
-     c[col] = -cCol / pivotValue;
+     // If no valid pivot column found, exit or handle as needed
+     if (pivotCol == -1)
+     {
+          return;
+     }
 
-     // update b and a at the same time
-     for (i = 0; i < m; i++)
+     // Determine pivot row based on the selected pivot column
+     double minRatio = 1e9;
+     for (int i = 0; i < m; i++)
+     {
+          if (a[i][pivotCol] > 0)
+          {
+               double ratio = b[i] / a[i][pivotCol];
+               if (ratio < minRatio)
+               {
+                    minRatio = ratio;
+                    row = i;
+               }
+          }
+     }
+
+     // Swap variables for pivot
+     int t = s->var[pivotCol];
+     s->var[pivotCol] = s->var[n + row];
+     s->var[n + row] = t;
+
+     // Perform pivoting with the selected row and column
+     double pivotValue = a[row][pivotCol];
+     double invPivot = 1.0 / pivotValue;
+     double cCol = c[pivotCol];
+     double bRow = b[row];
+     s->y += cCol * bRow * invPivot;
+
+     // Update c
+     for (int i = 0; i < n; i++)
+     {
+          if (i != pivotCol)
+          {
+               c[i] -= cCol * a[row][i] * invPivot;
+          }
+     }
+     c[pivotCol] = -cCol * invPivot;
+
+     // Update b and a simultaneously
+     for (int i = 0; i < m; i++)
      {
           if (i != row)
           {
-               double aICol = a[i][col];
-               b[i] -= aICol * bRow / pivotValue;
+               double aICol = a[i][pivotCol];
+               double factor = aICol * invPivot;
+               b[i] -= factor * bRow;
 
-               for (j = 0; j < n; j++)
+               for (int j = 0; j < n; j++)
                {
-                    a[i][j] = a[i][j] - aICol * a[row][j] / pivotValue;
+                    if (j != pivotCol)
+                    {
+                         a[i][j] -= factor * a[row][j];
+                    }
                }
-               a[i][col] = -aICol / pivotValue;
+               a[i][pivotCol] = -factor;
           }
      }
 
      // Update a[row][i] and b[row]
-     for (i = 0; i < n; i++)
+     for (int i = 0; i < n; i++)
      {
-          a[row][i] /= pivotValue;
+          if (i != pivotCol)
+          {
+               a[row][i] *= invPivot;
+          }
      }
-
-     b[row] /= pivotValue;
-     a[row][col] = 1 / pivotValue;
+     b[row] *= invPivot;
+     a[row][pivotCol] = invPivot;
 }
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h)
