@@ -1,7 +1,7 @@
 CC	= cc
-CFLAGS	= -pedantic -Wall -Werror -g -Os -funsigned-char
+CFLAGS = -pedantic -Wall -Werror -g -Os -funsigned-char 
 OUT	= a.out
-FILE	= freq
+FILE = freq
 
 execute: compile
 	./a.out < input > output
@@ -10,7 +10,7 @@ execute: compile
 	diff output.z correct.z
 
 compile: clean $(FILE).o malloc.o
-	$(CC) freq.o malloc.o
+	$(CC) freq.o malloc.o 
 
 $(FILE).o: $(FILE).c
 	$(CC) -include wecc.h -c $(FILE).c $(CFLAGS)
