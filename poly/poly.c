@@ -6,7 +6,7 @@
 
 #include "poly.h"
 
-#define MAX_TERMS 10
+#define MAX_TERMS 10000
 
 typedef struct
 {
@@ -22,22 +22,71 @@ struct poly_t
 
 void add_term(poly_t *poly, int coefficient, int power)
 {
-     // if term already exists, ensure same power and add coefficients
-     for (int i = 0; i < poly->term_count; i++)
+     if (coefficient == 0)
+          return; // Ignore zero terms
+
+     // Binary search to find the correct position (if terms are sorted)
+     int pos = -1;
+     int left = 0;
+     int right = poly->term_count - 1;
+
+     while (left <= right)
      {
-          if (poly->terms[i].power == power)
+          int mid = left + (right - left) / 2;
+          if (poly->terms[mid].power == power)
           {
-               poly->terms[i].coefficient += coefficient;
-               return;
+               pos = mid;
+               break;
+          }
+          else if (poly->terms[mid].power > power)
+          {
+               left = mid + 1;
+          }
+          else
+          {
+               right = mid - 1;
           }
      }
 
-     // otherwise, add a new term
+     // Update the coefficient if power already exists
+     if (pos != -1)
+     {
+          poly->terms[pos].coefficient += coefficient;
+
+          // Remove the term if the coefficient becomes zero
+          if (poly->terms[pos].coefficient == 0)
+          {
+               for (int i = pos; i < poly->term_count - 1; i++)
+               {
+                    poly->terms[i] = poly->terms[i + 1];
+               }
+               poly->term_count--;
+          }
+          return;
+     }
+
+     // determine insertion pos
+     pos = left;
+
+     // Otherwise: insert a new term with the power
      if (poly->term_count < MAX_TERMS)
      {
-          poly->terms[poly->term_count].coefficient = coefficient;
-          poly->terms[poly->term_count].power = power;
+          // the terms after pos are shifted one pos to right to make room for new term
+          // poly->term_count index increases the array by one, so after this index (pos) we shift the elements forward to make space for the new term
+          for (int i = poly->term_count; i > pos; i--)
+          {
+               poly->terms[i] = poly->terms[i - 1];
+          }
+          poly->terms[pos].coefficient = coefficient;
+          poly->terms[pos].power = power;
           poly->term_count++;
+          return;
+     }
+     else
+     {
+          {
+               fprintf(stderr, "Error: Maximum term count exceeded\n");
+          }
      }
 }
 
@@ -58,7 +107,9 @@ poly_t *new_poly_from_string(const char *s)
      bool isNegative = false;
      bool hasCoefficient = false;
 
-     for (size_t i = 0; s[i] != '\0'; i++)
+     size_t len = strlen(s);
+
+     for (size_t i = 0; i <= len; i++)
      {
           if (s[i] == '-')
           {
@@ -100,21 +151,21 @@ poly_t *new_poly_from_string(const char *s)
                power = 0;
                hasCoefficient = false;
           }
-          else if (isspace(s[i]))
+          else if (isspace(s[i]) || s[i] == '\0') // Handle end of term or input
           {
-               continue;
+               if (hasCoefficient) // If parsing a constant term
+               {
+                    add_term(poly, isNegative ? -coefficient : coefficient, 0);
+                    coefficient = 0;
+                    isNegative = false;
+                    hasCoefficient = false;
+               }
+          }
+          else if (s[i] != '\0') // Unexpected characters
+          {
+               fprintf(stderr, "Warning: Ignoring unexpected character '%c'\n", s[i]);
           }
      }
-
-     if (hasCoefficient) // add constant
-     {
-          add_term(poly, isNegative ? -coefficient : coefficient, 0);
-          // reset
-          coefficient = 0;
-          isNegative = false;
-          hasCoefficient = false;
-     }
-
      return poly;
 }
 
@@ -127,13 +178,13 @@ poly_t *mul(poly_t *a, poly_t *b)
 {
      poly_t *result = malloc(sizeof(poly_t));
 
-     result->term_count = 0;
-
      if (!result)
      {
           perror("Failed to allocate memory for result polynomial");
           return NULL;
      }
+
+     result->term_count = 0;
 
      for (int i = 0; i < a->term_count; i++)
      {
@@ -144,6 +195,7 @@ poly_t *mul(poly_t *a, poly_t *b)
                add_term(result, new_coefficient, new_power);
           }
      }
+
      return result;
 }
 

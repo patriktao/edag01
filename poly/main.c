@@ -28,9 +28,17 @@ static void poly_test(const char *a, const char *b)
 
 int main(void)
 {
-	poly_test("x^2 - 7x + 1", "3x + 2");
-	putchar('\n');
-	poly_test("x^10000000 + 2", "2x^2 + 3x + 4");
+	char a[1024], b[1024]; // Buffers to hold the parsed strings
+
+	// Read input from stdin
+	if (scanf("%1023[^,],%1023[^\n]", a, b) != 2)
+	{
+		fprintf(stderr, "Error: Failed to parse input.\n");
+		return 1;
+	}
+
+	// Call the poly_test function with the parsed strings
+	poly_test(a, b);
 
 	return 0;
 }
