@@ -7,6 +7,8 @@
 #include "poly.h"
 
 #define MAX_TERMS 10000
+#define MAX_POWER 10000
+#define INITIAL_CAPACITY 10
 
 typedef struct
 {
@@ -16,14 +18,48 @@ typedef struct
 
 struct poly_t
 {
-     term_t terms[MAX_TERMS];
+     term_t *terms;
      int term_count;
+     int capacity;
 };
+
+void init_poly(poly_t *poly)
+{
+     poly->term_count = 0;
+     poly->capacity = INITIAL_CAPACITY;
+     poly->terms = malloc(poly->capacity * sizeof(term_t));
+     if (!poly->terms)
+     {
+          perror("Failed to allocate memory for polynomial terms");
+          exit(EXIT_FAILURE);
+     }
+}
+
+void free_poly(poly_t *poly)
+{
+     free(poly->terms);
+     free(poly);
+}
+
+// allocate more capacity
+void ensure_capacity(poly_t *poly)
+{
+     if (poly->term_count >= poly->capacity)
+     {
+          poly->capacity *= 2;
+          poly->terms = realloc(poly->terms, poly->capacity * sizeof(term_t));
+          if (!poly->terms)
+          {
+               perror("Failed to reallocate memory for polynomial terms");
+               exit(EXIT_FAILURE);
+          }
+     }
+}
 
 void add_term(poly_t *poly, int coefficient, int power)
 {
      if (coefficient == 0)
-          return; // Ignore zero terms
+          return;
 
      // Binary search to find the correct position (if terms are sorted)
      int pos = -1;
@@ -65,29 +101,17 @@ void add_term(poly_t *poly, int coefficient, int power)
           return;
      }
 
-     // determine insertion pos
+     // Insert new term
+     ensure_capacity(poly);
      pos = left;
 
-     // Otherwise: insert a new term with the power
-     if (poly->term_count < MAX_TERMS)
+     for (int i = poly->term_count; i > pos; i--)
      {
-          // the terms after pos are shifted one pos to right to make room for new term
-          // poly->term_count index increases the array by one, so after this index (pos) we shift the elements forward to make space for the new term
-          for (int i = poly->term_count; i > pos; i--)
-          {
-               poly->terms[i] = poly->terms[i - 1];
-          }
-          poly->terms[pos].coefficient = coefficient;
-          poly->terms[pos].power = power;
-          poly->term_count++;
-          return;
+          poly->terms[i] = poly->terms[i - 1];
      }
-     else
-     {
-          {
-               fprintf(stderr, "Error: Maximum term count exceeded\n");
-          }
-     }
+     poly->terms[pos].coefficient = coefficient;
+     poly->terms[pos].power = power;
+     poly->term_count++;
 }
 
 poly_t *new_poly_from_string(const char *s)
@@ -100,7 +124,7 @@ poly_t *new_poly_from_string(const char *s)
           return NULL;
      }
 
-     poly->term_count = 0;
+     init_poly(poly);
 
      int coefficient = 0;
      int power = 0;
@@ -113,23 +137,23 @@ poly_t *new_poly_from_string(const char *s)
      {
           if (s[i] == '-')
           {
-               isNegative = true;
+               isNegative = 1;
           }
           else if (s[i] == '+')
           {
-               isNegative = false;
+               isNegative = 0;
           }
           else if (isdigit(s[i]))
           {
                coefficient = coefficient * 10 + (s[i] - '0');
-               hasCoefficient = true;
+               hasCoefficient = 1;
           }
           else if (s[i] == 'x')
           {
-               power = 1; // default power is 1
+               power = 1;
                if (!hasCoefficient)
                {
-                    coefficient = 1; // // Default coefficient is 1 if none is specified
+                    coefficient = 1;
                }
                if (isNegative)
                {
@@ -137,7 +161,7 @@ poly_t *new_poly_from_string(const char *s)
                }
                if (s[i + 1] == '^')
                {
-                    i += 2; // Move past '^'
+                    i += 2; // Move past
                     power = 0;
                     while (isdigit(s[i])) // iteratively build the power number
                     {
@@ -149,7 +173,7 @@ poly_t *new_poly_from_string(const char *s)
                add_term(poly, coefficient, power);
                coefficient = 0;
                power = 0;
-               hasCoefficient = false;
+               hasCoefficient = 0;
           }
           else if (isspace(s[i]) || s[i] == '\0') // Handle end of term or input
           {
@@ -169,36 +193,40 @@ poly_t *new_poly_from_string(const char *s)
      return poly;
 }
 
-void free_poly(poly_t *poly)
-{
-     free(poly);
-}
-
+// Multiply two polynomials
 poly_t *mul(poly_t *a, poly_t *b)
 {
      poly_t *result = malloc(sizeof(poly_t));
-
      if (!result)
      {
           perror("Failed to allocate memory for result polynomial");
           return NULL;
      }
+     init_poly(result);
 
-     result->term_count = 0;
+     int coefficients[MAX_POWER] = {0}; // map
 
      for (int i = 0; i < a->term_count; i++)
      {
           for (int j = 0; j < b->term_count; j++)
           {
                int new_power = a->terms[i].power + b->terms[j].power;
-               int new_coefficient = a->terms[i].coefficient * b->terms[j].coefficient;
-               add_term(result, new_coefficient, new_power);
+               coefficients[new_power] += a->terms[i].coefficient * b->terms[j].coefficient;
+          }
+     }
+
+     for (int p = 0; p < MAX_POWER; p++)
+     {
+          if (coefficients[p] != 0) // lägg bara till de som inte har 0 coefficient.
+          {
+               add_term(result, coefficients[p], p);
           }
      }
 
      return result;
 }
 
+// Print the polynomial
 void print_poly(poly_t *poly)
 {
      for (int i = 0; i < poly->term_count; i++)
@@ -206,27 +234,30 @@ void print_poly(poly_t *poly)
           int coeff = poly->terms[i].coefficient;
           int power = poly->terms[i].power;
 
-          // skip zero coefficient terms
           if (coeff == 0)
                continue;
 
-          // print neg or pos symbol
           if (i > 0 && coeff > 0)
           {
                printf(" + ");
           }
           else if (coeff < 0)
           {
-               printf(" - ");
+               if (i == 0)
+               {
+                    printf("- ");
+               }
+               else
+               {
+                    printf(" - ");
+               }
                coeff = -coeff;
           }
 
-          // print the term
           if (coeff != 1 || power == 0)
           {
                printf("%d", coeff);
           }
-
           if (power > 0)
           {
                printf("x");

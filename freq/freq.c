@@ -50,6 +50,7 @@ void add_word(WordCount *words, int *total_words, const char *word)
                return;
           }
      }
+
      printf("added %s\n", word);
 
      words[*total_words].word = malloc(MAX_WORD_LEN);

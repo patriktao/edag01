@@ -32,12 +32,12 @@ int main(void)
      while ((c = getchar()) != EOF)
      {
           if (err)
-          {                                    // Skip to end of line if error
-               while ((c = getchar()) != '\n') // pass until reaching eof
+          {
+               if (c == '\n')
                {
+                    reset_states(&idx, &num, &err, &building);
+                    line++;
                }
-               line++;
-               reset_states(&idx, &num, &building, &err);
                continue;
           }
 
@@ -52,9 +52,8 @@ int main(void)
           {
                if (idx == N)
                {
-                    printf("line %d: error at %d\n", line, num);
+                    handle_error(line, '0' + num); // Use '0' + num to show parsed number
                     err = true;
-                    continue;
                }
                else
                {

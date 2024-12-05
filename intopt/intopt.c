@@ -44,6 +44,7 @@ struct set_t
 };
 
 // Declaration
+void print(struct simplex_t *s);
 
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y);
 
@@ -59,33 +60,61 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
 
 int select_nonbasic(struct simplex_t *s)
 {
-     int i;
-     for (i = 0; i < s->n; i++)
+     int selected_col = -1;
+     double max_steepest = -INFINITY;
+     int approx_rows = s->m > 6 ? 6 : s->m; // Approximate only up to 8 rows, otherwise lower
+
+     for (int i = 0; i < s->n; i++)
      {
           if (s->c[i] > EPSILON)
           {
-               return i;
+               double norm_approx = 0.0;
+
+               // Unrolled loop for l^1 norm approximation
+               int j = 0;
+               int unrolled_rows = approx_rows & ~3; // Process in multiples of 4
+               for (; j < unrolled_rows; j += 4)
+               {
+                    norm_approx += fabs(s->a[j][i]) + fabs(s->a[j + 1][i]) +
+                                   fabs(s->a[j + 2][i]) + fabs(s->a[j + 3][i]);
+               }
+               for (; j < approx_rows; j++)
+               { // Handle remaining rows
+                    norm_approx += fabs(s->a[j][i]);
+               }
+
+               if (norm_approx > EPSILON)
+               {                                                         // Avoid division by zero
+                    double steepest_value = fabs(s->c[i]) / norm_approx; // l^1-based steepest
+
+                    if (steepest_value > max_steepest)
+                    {
+                         max_steepest = steepest_value;
+                         selected_col = i;
+                    }
+               }
           }
      }
-     return -1;
+
+     return selected_col;
 }
 
 struct node_t *initial_node(int m, int n, double **a, double *b, double *c)
 {
-     struct node_t *p = calloc(1, sizeof(struct node_t));
+     struct node_t *p = malloc(1 * sizeof(struct node_t));
      int i, j;
 
-     p->a = calloc(m + 1, sizeof(double *)); // Allocate memory for each row
+     p->a = malloc((m + 1) * sizeof(double *)); // Allocate memory for each row
      for (i = 0; i < m + 1; i++)
      {
-          p->a[i] = calloc(n + 1, sizeof(double)); // Allocate memory for each column
+          p->a[i] = malloc((n + 1) * sizeof(double)); // Allocate memory for each column
      }
 
-     p->b = calloc(m + 1, sizeof(double));
-     p->c = calloc(n + 1, sizeof(double));
-     p->x = calloc(n + 1, sizeof(double));
-     p->min = calloc(n, sizeof(double));
-     p->max = calloc(n, sizeof(double));
+     p->b = malloc((m + 1) * sizeof(double));
+     p->c = malloc((n + 1) * sizeof(double));
+     p->x = malloc((n + 1) * sizeof(double));
+     p->min = malloc(n * sizeof(double));
+     p->max = malloc(n * sizeof(double));
      p->m = m;
      p->n = n;
 
@@ -111,7 +140,7 @@ struct node_t *initial_node(int m, int n, double **a, double *b, double *c)
 
 struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, double *c, int k, double ak, double bk)
 {
-     struct node_t *q = calloc(1, sizeof(struct node_t));
+     struct node_t *q = malloc(1 * sizeof(struct node_t));
      int i, j;
 
      q->k = k;
@@ -134,18 +163,18 @@ struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, dou
      q->n = p->n;
      q->h = -1;
 
-     q->a = calloc(q->m + 1, sizeof(double *));
+     q->a = malloc((q->m + 1) * sizeof(double *));
 
      for (i = 0; i < q->m + 1; i++)
      {
-          q->a[i] = calloc(q->n + 1, sizeof(double));
+          q->a[i] = malloc((q->n + 1) * sizeof(double));
      }
 
-     q->b = calloc(q->m + 1, sizeof(double));
-     q->c = calloc(q->n + 1, sizeof(double));
-     q->x = calloc(q->n + 1, sizeof(double));
-     q->min = calloc(n, sizeof(double));
-     q->max = calloc(n, sizeof(double));
+     q->b = malloc((q->m + 1) * sizeof(double));
+     q->c = malloc((q->n + 1) * sizeof(double));
+     q->x = malloc((q->n + 1) * sizeof(double));
+     q->min = malloc(n * sizeof(double));
+     q->max = malloc(n * sizeof(double));
 
      // copy p.min and p.max to q // each element and not only pointers
      memcpy(q->min, p->min, n * sizeof(double));
@@ -213,9 +242,12 @@ int integer(struct node_t *p)
 {
      int i;
 
-     for (i = 0; i < p->n; i++)
+     for (int i = 0; i < p->n; i += 4)
      {
-          if (!is_integer(&p->x[i]))
+          if (!is_integer(&p->x[i]) ||
+              (i + 1 < p->n && !is_integer(&p->x[i + 1])) ||
+              (i + 2 < p->n && !is_integer(&p->x[i + 2])) ||
+              (i + 3 < p->n && !is_integer(&p->x[i + 3])))
           {
                return 0;
           }
@@ -318,9 +350,11 @@ void add(struct set_t *h, struct node_t *p)
      }
      else
      {
-          // Allocate on more place size
-          h->alloc *= 2;
-          h->nodes = (struct node_t **)realloc(h->nodes, h->alloc * sizeof(struct node_t *));
+          if (h->count == h->alloc)
+          {
+               h->alloc *= 2; // redice frequent calls to realloc instead of using += 1
+               h->nodes = realloc(h->nodes, h->alloc * sizeof(struct node_t *));
+          }
 
           // initialize the newly allocated
           for (i = h->count; i < h->alloc; i++)
@@ -363,11 +397,11 @@ void succ(struct node_t *p, struct set_t *h, int m, int n, double **a, double *b
 
 struct set_t *create_set(struct node_t *p)
 {
-     struct set_t *h = calloc(1, sizeof(struct set_t));
+     struct set_t *h = malloc(1 * sizeof(struct set_t));
 
      h->alloc = 10;
      h->count = 0;
-     h->nodes = calloc(h->alloc, sizeof(struct node_t *)); // Each array element needs to be allocated memory for a node
+     h->nodes = malloc((h->alloc) * sizeof(struct node_t *)); // Each array element needs to be allocated memory for a node
 
      for (int i = 0; i < h->alloc; i++)
      {
@@ -460,7 +494,7 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
 
      if (s->var == NULL)
      {
-          s->var = calloc(m + n + 1, sizeof(int));
+          s->var = malloc((m + n + 1) * sizeof(int));
           for (i = 0; i < m + n; i++)
           {
                s->var[i] = i;
@@ -477,60 +511,96 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
      return k;
 }
 
-void pivot(struct simplex_t *s, int row, int col)
+// lade till restrict för att preventa overlapping pointers
+void pivot(struct simplex_t *restrict s, int row, int col)
 {
-     double **a = s->a;
-     double *b = s->b;
-     double *c = s->c;
-     int m = s->m;
-     int n = s->n;
-     int i, j; // Loop variables
+     double **restrict a = s->a;
+     double *restrict b = s->b;
+     double *restrict c = s->c;
+     int m = s->m, n = s->n;
 
      // avoid rendundancy
      double pivotValue = a[row][col];
-
-     // new changes
+     double pivotInv = 1.0 / pivotValue;
      double cCol = c[col];
      double bRow = b[row];
 
-     int t = s->var[col];
-     s->var[col] = s->var[n + row];
-     s->var[n + row] = t;
+     // Update objective value
+     s->y += cCol * bRow * pivotInv;
 
-     s->y = s->y + cCol * bRow / pivotValue;
+     // Update variable indices
+     int tmp = s->var[col];
+     s->var[col] = s->var[n + row];
+     s->var[n + row] = tmp;
 
      // update c
-     for (i = 0; i < n; i++)
+     for (int i = 0; i < n; i += 4)
      {
-          c[i] = c[i] - cCol * a[row][i] / pivotValue;
+          if (i != col)
+               c[i] -= cCol * a[row][i] * pivotInv;
+          if (i + 1 < n && (i + 1) != col)
+               c[i + 1] -= cCol * a[row][i + 1] * pivotInv;
+          if (i + 2 < n && (i + 2) != col)
+               c[i + 2] -= cCol * a[row][i + 2] * pivotInv;
+          if (i + 3 < n && (i + 3) != col)
+               c[i + 3] -= cCol * a[row][i + 3] * pivotInv;
      }
+     c[col] = -cCol * pivotInv;
 
-     c[col] = -cCol / pivotValue;
-
-     // update b and a at the same time
-     for (i = 0; i < m; i++)
+     // Update a and b simultaneously
+     for (int i = 0; i < m; i++)
      {
           if (i != row)
           {
-               double aICol = a[i][col];
-               b[i] -= aICol * bRow / pivotValue;
+               double factor = a[i][col] * pivotInv;
+               b[i] -= factor * bRow;
 
-               for (j = 0; j < n; j++)
+               // Unroll loop for j < col
+               int unrolled_col = col & ~3; // Align to multiple of 4
+               for (int j = 0; j < unrolled_col; j += 4)
                {
-                    a[i][j] = a[i][j] - aICol * a[row][j] / pivotValue;
+                    a[i][j] -= factor * a[row][j];
+                    a[i][j + 1] -= factor * a[row][j + 1];
+                    a[i][j + 2] -= factor * a[row][j + 2];
+                    a[i][j + 3] -= factor * a[row][j + 3];
                }
-               a[i][col] = -aICol / pivotValue;
+               for (int j = unrolled_col; j < col; j++)
+               { // Handle remainder
+                    a[i][j] -= factor * a[row][j];
+               }
+
+               // Unroll loop for j > col
+               int unrolled_n = (n - col - 1) & ~3; // Align to multiple of 4
+               for (int j = col + 1; j < col + 1 + unrolled_n; j += 4)
+               {
+                    a[i][j] -= factor * a[row][j];
+                    a[i][j + 1] -= factor * a[row][j + 1];
+                    a[i][j + 2] -= factor * a[row][j + 2];
+                    a[i][j + 3] -= factor * a[row][j + 3];
+               }
+               for (int j = col + 1 + unrolled_n; j < n; j++)
+               { // Handle remainder
+                    a[i][j] -= factor * a[row][j];
+               }
+
+               a[i][col] = -factor;
           }
      }
 
      // Update a[row][i] and b[row]
-     for (i = 0; i < n; i++)
+     for (int j = 0; j < n; j += 4)
      {
-          a[row][i] /= pivotValue;
+          if (j != col)
+               a[row][j] *= pivotInv;
+          if (j + 1 < n && (j + 1) != col)
+               a[row][j + 1] *= pivotInv;
+          if (j + 2 < n && (j + 2) != col)
+               a[row][j + 2] *= pivotInv;
+          if (j + 3 < n && (j + 3) != col)
+               a[row][j + 3] *= pivotInv;
      }
-
-     b[row] /= pivotValue;
-     a[row][col] = 1 / pivotValue;
+     b[row] *= pivotInv;
+     a[row][col] = pivotInv;
 }
 
 double xsimplex(int m, int n, double **a, double *b, double *c, double *x, double y, int *var, int h)
@@ -547,12 +617,19 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
      while ((col = select_nonbasic(&s)) >= 0)
      {
           row = -1;
+          double min_ratio = INFINITY;
 
           for (i = 0; i < m; i++)
           {
-               if (a[i][col] > EPSILON && (row < 0 || b[i] / a[i][col] < b[row] / a[row][col]))
+               double a_col_val = a[i][col];
+               if (a_col_val > EPSILON)
                {
-                    row = i;
+                    double ratio = b[i] * (1.0 / a_col_val); // precomute division to avoid it during comparison
+                    if (ratio < min_ratio)
+                    {
+                         min_ratio = ratio;
+                         row = i;
+                    }
                }
           }
 
@@ -565,23 +642,16 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
           pivot(&s, row, col);
      }
 
-     if (h == 0) // Finalization baserat på variabel h, uppdatera s
+     if (h == 0)
      {
-          for (i = 0; i < n; i++)
+          for (i = 0; i < n + m; i++)
           {
-               if (s.var[i] < n)
+               int var_idx = s.var[i];
+               if (var_idx < n)
                {
-                    x[s.var[i]] = 0;
+                    x[var_idx] = (i < n) ? 0 : s.b[i - n];
                }
           }
-          for (i = 0; i < m; i++)
-          {
-               if (s.var[n + i] < n)
-               {
-                    x[s.var[n + i]] = s.b[i];
-               }
-          }
-          free(s.var);
      }
      else
      {
@@ -610,9 +680,15 @@ void prepare(struct simplex_t *s, int k)
      int i;
 
      // Shift variable in the var array
-     for (i = m + n; i > n; i--)
+     for (int i = m + n; i > n; i -= 4)
      {
           s->var[i] = s->var[i - 1];
+          if (i - 1 > n)
+               s->var[i - 1] = s->var[i - 2];
+          if (i - 2 > n)
+               s->var[i - 2] = s->var[i - 3];
+          if (i - 3 > n)
+               s->var[i - 3] = s->var[i - 4];
      }
 
      // Update the var array with the new variable
@@ -628,8 +704,8 @@ void prepare(struct simplex_t *s, int k)
      }
 
      //  Reallocate
-     s->x = calloc(m + n, sizeof(double));
-     s->c = calloc(n, sizeof(double));
+     s->x = malloc((m + n) * sizeof(double));
+     s->c = malloc(n * sizeof(double));
 
      s->c[n - 1] = -1;
      s->n = n;
@@ -645,16 +721,15 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
      k = init(s, m, n, a, b, c, x, y, var);
 
      if (b[k] >= 0)
-     {
           return 1;
-     }
 
      prepare(s, k);
-
      n = s->n;
 
+     // perform simplex
      s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
 
+     // check feasibility
      for (i = 0; i < m + n; i++)
      {
           if (s->var[i] == m + n - 1)
@@ -663,12 +738,9 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
                {
                     free(s->x);
                     free(s->c);
-                    return 0; // infeasible
+                    return 0;
                }
-               else
-               {
-                    break;
-               }
+               break;
           }
      }
 
@@ -699,62 +771,65 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
                s->a[k][i] = w;
           }
      }
-     else
-     {
-          // x_n+m is nonbasic and last, forget it
-     }
+     // x_n+m is nonbasic and last, forget it
 
      free(s->c);
 
      s->c = c;
      s->y = y;
-     for (k = n - 1; k < n + m - 1; k++)
-     {
-          s->var[k] = s->var[k + 1];
-     }
+
+     // shifting variables
+     memmove(&s->var[n - 1], &s->var[n], m * sizeof(int));
 
      n = s->n = s->n - 1;
 
-     double *t = calloc(n, sizeof(double));
+     // Use stack allocation for temporary calculation becayse of small arrays
+     double t[n];
+     memset(t, 0, sizeof(t));
 
      for (k = 0; k < n; k++)
      {
+          bool found = false;
           for (j = 0; j < n; j++)
           {
                if (k == s->var[j])
                {
                     // x_k is nonbasic, add c[k]
-                    t[j] = t[j] + s->c[k];
-                    goto next_k;
-               }
-          }
-
-          // x_k is basic
-          for (j = 0; j < m; j++)
-          {
-               if (s->var[n + j] == k)
-               {
-                    // x_k is at row j
+                    t[j] += c[k];
+                    found = true;
                     break;
                }
           }
 
-          s->y = s->y + s->c[k] * s->b[j];
-
-          for (i = 0; i < n; i++)
+          // x_k is basic
+          if (!found)
           {
-               t[i] = t[i] - s->c[k] * s->a[j][i];
+               int row = -1;
+               for (j = 0; j < m; j++)
+               {
+                    if (s->var[n + j] == k)
+                    {
+                         // x_k is at row j
+                         row = j;
+                         break;
+                    }
+               }
+
+               if (row != -1)
+               {
+                    s->y += c[k] * s->b[row];
+                    for (int i = 0; i < n; i++)
+                    {
+                         t[i] -= c[k] * s->a[row][i];
+                    }
+               }
           }
-
-     next_k:;
      }
 
-     for (i = 0; i < n; i++)
-     {
-          s->c[i] = t[i];
-     }
+     // Update objective coefficients
+     memcpy(s->c, t, n * sizeof(double));
 
-     free(t);
+     // clean up
      free(s->x);
      return 1;
 }
