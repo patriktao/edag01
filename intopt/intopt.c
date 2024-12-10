@@ -44,7 +44,6 @@ struct set_t
 };
 
 // Declaration
-void print(struct simplex_t *s);
 
 double simplex(int m, int n, double **a, double *b, double *c, double *x, double y);
 
@@ -62,7 +61,7 @@ int select_nonbasic(struct simplex_t *s)
 {
      int selected_col = -1;
      double max_steepest = -INFINITY;
-     int approx_rows = s->m > 6 ? 6 : s->m; // Approximate only up to 8 rows, otherwise lower
+     int approx_rows = s->m > 8 ? 8 : s->m; // Approximate only up to 8 rows, otherwise lower
 
      for (int i = 0; i < s->n; i++)
      {
@@ -123,9 +122,7 @@ struct node_t *initial_node(int m, int n, double **a, double *b, double *c)
      {
           memcpy(p->a[i], a[i], n * sizeof(double));
      }
-
      memcpy(p->b, b, m * sizeof(double));
-
      memcpy(p->c, c, n * sizeof(double));
 
      // min and max
@@ -140,12 +137,13 @@ struct node_t *initial_node(int m, int n, double **a, double *b, double *c)
 
 struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, double *c, int k, double ak, double bk)
 {
-     struct node_t *q = malloc(1 * sizeof(struct node_t));
+     struct node_t *q = malloc(sizeof(struct node_t));
+
      int i, j;
 
      q->k = k;
-     q->k = ak;
-     q->k = bk;
+     q->ak = ak;
+     q->bk = bk;
 
      if (ak > 0 && p->max[k] < INFINITY)
      {
@@ -162,12 +160,11 @@ struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, dou
 
      q->n = p->n;
      q->h = -1;
-
      q->a = malloc((q->m + 1) * sizeof(double *));
-
      for (i = 0; i < q->m + 1; i++)
      {
           q->a[i] = malloc((q->n + 1) * sizeof(double));
+          memset(q->a[i], 0, (q->n + 1) * sizeof(double));
      }
 
      q->b = malloc((q->m + 1) * sizeof(double));
@@ -176,20 +173,20 @@ struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, dou
      q->min = malloc(n * sizeof(double));
      q->max = malloc(n * sizeof(double));
 
-     // copy p.min and p.max to q // each element and not only pointers
+     // Copy p.min and p.max to q
      memcpy(q->min, p->min, n * sizeof(double));
      memcpy(q->max, p->max, n * sizeof(double));
 
-     // copy m first rows of parameter a to q.a //each element, possibly wrong
+     // Copy the first m rows of parameter a to q.a
      for (i = 0; i < m; i++)
      {
           memcpy(q->a[i], a[i], n * sizeof(double));
      }
 
-     // copy m first elements of paramenter b to q.b
+     // Copy the first m elements of parameter b to q.b
      memcpy(q->b, b, m * sizeof(double));
 
-     // copy paraemeter c to q.c // each element
+     // Copy parameter c to q.c
      memcpy(q->c, c, n * sizeof(double));
 
      if (ak > 0)
@@ -219,6 +216,7 @@ struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, dou
                i++;
           }
      }
+
      return q;
 }
 
@@ -350,11 +348,9 @@ void add(struct set_t *h, struct node_t *p)
      }
      else
      {
-          if (h->count == h->alloc)
-          {
-               h->alloc *= 2; // redice frequent calls to realloc instead of using += 1
-               h->nodes = realloc(h->nodes, h->alloc * sizeof(struct node_t *));
-          }
+          // Allocate on more place size
+          h->alloc *= 2;
+          h->nodes = (struct node_t **)realloc(h->nodes, h->alloc * sizeof(struct node_t *));
 
           // initialize the newly allocated
           for (i = h->count; i < h->alloc; i++)
@@ -397,16 +393,14 @@ void succ(struct node_t *p, struct set_t *h, int m, int n, double **a, double *b
 
 struct set_t *create_set(struct node_t *p)
 {
-     struct set_t *h = malloc(1 * sizeof(struct set_t));
+     struct set_t *h = malloc(sizeof(struct set_t)); // Allocating memory for the set structure
 
      h->alloc = 10;
      h->count = 0;
-     h->nodes = malloc((h->alloc) * sizeof(struct node_t *)); // Each array element needs to be allocated memory for a node
+     h->nodes = malloc(h->alloc * sizeof(struct node_t *)); // Allocating memory for the array of node pointers
 
-     for (int i = 0; i < h->alloc; i++)
-     {
-          h->nodes[i] = NULL; // Initialize
-     }
+     // Use memset to initialize all elements of the array to NULL
+     memset(h->nodes, 0, h->alloc * sizeof(struct node_t *));
 
      add(h, p);
 
@@ -511,7 +505,6 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
      return k;
 }
 
-// lade till restrict för att preventa overlapping pointers
 void pivot(struct simplex_t *restrict s, int row, int col)
 {
      double **restrict a = s->a;
@@ -617,19 +610,12 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
      while ((col = select_nonbasic(&s)) >= 0)
      {
           row = -1;
-          double min_ratio = INFINITY;
 
           for (i = 0; i < m; i++)
           {
-               double a_col_val = a[i][col];
-               if (a_col_val > EPSILON)
+               if (a[i][col] > EPSILON && (row < 0 || b[i] / a[i][col] < b[row] / a[row][col]))
                {
-                    double ratio = b[i] * (1.0 / a_col_val); // precomute division to avoid it during comparison
-                    if (ratio < min_ratio)
-                    {
-                         min_ratio = ratio;
-                         row = i;
-                    }
+                    row = i;
                }
           }
 
@@ -652,6 +638,7 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
                     x[var_idx] = (i < n) ? 0 : s.b[i - n];
                }
           }
+          free(s.var);
      }
      else
      {
@@ -706,6 +693,7 @@ void prepare(struct simplex_t *s, int k)
      //  Reallocate
      s->x = malloc((m + n) * sizeof(double));
      s->c = malloc(n * sizeof(double));
+     memset(s->c, 0, n * sizeof(double));
 
      s->c[n - 1] = -1;
      s->n = n;
@@ -721,12 +709,10 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
      k = init(s, m, n, a, b, c, x, y, var);
 
      if (b[k] >= 0)
-          return 1;
+          return 1; // feasible
 
      prepare(s, k);
      n = s->n;
-
-     // perform simplex
      s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
 
      // check feasibility
@@ -738,7 +724,7 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
                {
                     free(s->x);
                     free(s->c);
-                    return 0;
+                    return 0; // infeasible
                }
                break;
           }
@@ -746,6 +732,7 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
 
      if (i >= n)
      {
+          // x_n+m is basic. find good nonbasic.
           for (j = 0, k = 0; k < n; k++)
           {
                if (fabs(s->a[i - n][k]) > fabs(s->a[i - n][j]))
@@ -789,41 +776,37 @@ int initial(struct simplex_t *s, int m, int n, double **a, double *b, double *c,
 
      for (k = 0; k < n; k++)
      {
-          bool found = false;
           for (j = 0; j < n; j++)
           {
                if (k == s->var[j])
                {
                     // x_k is nonbasic, add c[k]
-                    t[j] += c[k];
-                    found = true;
-                    break;
+                    t[j] += s->c[k];
+                    goto next_k;
                }
           }
 
           // x_k is basic
-          if (!found)
+          int row = -1;
+          for (j = 0; j < m; j++)
           {
-               int row = -1;
-               for (j = 0; j < m; j++)
+               if (s->var[n + j] == k)
                {
-                    if (s->var[n + j] == k)
-                    {
-                         // x_k is at row j
-                         row = j;
-                         break;
-                    }
-               }
-
-               if (row != -1)
-               {
-                    s->y += c[k] * s->b[row];
-                    for (int i = 0; i < n; i++)
-                    {
-                         t[i] -= c[k] * s->a[row][i];
-                    }
+                    // x_k is at row j
+                    row = j;
+                    break;
                }
           }
+
+          if (row != -1)
+          {
+               s->y += s->c[k] * s->b[row];
+               for (int i = 0; i < n; i++)
+               {
+                    t[i] -= s->c[k] * s->a[row][i];
+               }
+          }
+     next_k:;
      }
 
      // Update objective coefficients
