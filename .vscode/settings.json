@@ -11,7 +11,11 @@
     "string": "c",
     "array": "c",
     "stdio.h": "c",
-    "poly.h": "c"
+    "poly.h": "c",
+    "stdbool.h": "c",
+    "error.h": "c",
+    "intopt_old": "cpp",
+    "string.h": "c"
   },
   "editor.formatOnSave": true,
   "C_Cpp.clang_format_fallbackStyle": "Visual Studio"
