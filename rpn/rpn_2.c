@@ -1,126 +1,91 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include <stdlib.h>
 #include <string.h>
 
 #define N 10
-#define MAX_LEN 256
-
-void reset_states(int *idx, int *num, bool *building, bool *err)
-{
-     *idx = 0;
-     *num = 0;
-     *building = false;
-     *err = false;
-}
-
-void handle_error(int line, char c)
-{
-     printf("line %d: error at %c\n", line, c);
-}
+#define MAX_LINE_LEN 50 // Maximum line length
 
 int main(void)
 {
-     unsigned int stack[N];          // Stack to store numbers and results
-     int idx = 0, num = 0, calc = 0; // Stack index and calculation variable
-     int c;
-     bool building = false;
-     bool err = false;
-     int line = 1;
+     int idx = 0, num = 0, line = 1, stack[N];
+     bool building = 0;
+     char buffer[MAX_LINE_LEN];
 
-     while ((c = getchar()) != EOF)
+     while (fgets(buffer, MAX_LINE_LEN, stdin))
      {
-          if (err)
-          {                                    // Skip to end of line if error
-               while ((c = getchar()) != '\n') // pass until reaching eof
-               {
-               }
-               line++;
-               reset_states(&idx, &num, &building, &err);
-               continue;
-          }
+          idx = 0;
+          num = 0;
+          building = 0;
 
-          if (isdigit(c))
+          for (char *c = buffer; *c != '\0'; c++) // Iterate until '\0'
           {
-               building = true;
-               num = num * 10 + (c - '0');
-               continue;
-          }
-
-          if (building)
-          {
-               if (idx == N)
+               if (*c >= '0' && *c <= '9') // Start building a number
                {
-                    printf("line %d: error at %d\n", line, num);
-                    err = true;
-                    continue;
-               }
-               else
-               {
-                    stack[idx++] = num;
-               }
-               num = 0;
-               building = false;
-          }
-
-          if (c == ' ')
-          {
-               continue;
-          }
-          else if (c == '\n')
-          {
-               if (idx != 1)
-               {
-                    printf("line %d: error at \\n\n", line);
-               }
-               else
-               {
-                    printf("line %d: %d\n", line, stack[0]);
-               }
-               line++;
-               reset_states(&idx, &num, &building, &err);
-               continue;
-          }
-          else if (c == '+' || c == '-' || c == '*' || c == '/')
-          {
-               if (idx < 2)
-               {
-                    handle_error(line, c);
-                    err = true;
-                    continue;
-               }
-
-               int op2 = stack[--idx]; // pop 1
-               int op1 = stack[--idx]; // pop 2
-
-               switch (c)
-               {
-               case '+':
-                    calc = op1 + op2;
-                    break;
-               case '-':
-                    calc = op1 - op2;
-                    break;
-               case '*':
-                    calc = op1 * op2;
-                    break;
-               case '/':
-                    if (op2 == 0)
+                    num = 0;                       // Reset number
+                    while (*c >= '0' && *c <= '9') // Build number in one pass
                     {
-                         printf("line %d: error at /\n", line);
-                         err = true;
-                         continue;
+                         num = num * 10 + (*c - '0');
+                         c++; // Move to the next character
                     }
-                    calc = op1 / op2;
-                    break;
+                    building = 1;
+                    c--; // Step back to reprocess the non-digit character
                }
-               stack[idx++] = calc; // add res
-          }
-          else
-          {
-               handle_error(line, c);
-               err = true;
+               else
+               {
+                    if (building)
+                    {
+                         if (idx == N)
+                         {
+                              printf("line %d: error at %c\n", line, '0' + num);
+                              line++;
+                              break;
+                         }
+                         stack[idx++] = num; // add to stack
+                         building = 0;
+                    }
+
+                    if (*c == ' ')
+                         continue;
+                    else if (*c == '\n' || *c == '\0') // End of line
+                    {
+                         if (idx != 1)
+                              printf("line %d: error at \\n\n", line);
+                         else
+                              printf("line %d: %d\n", line, stack[0]); // print result
+                         line++;
+                         break;
+                    }
+                    else if (*c == '+' || *c == '-' || *c == '*' || *c == '/') // Execute operation
+                    {
+                         if (idx < 2)
+                         {
+                              printf("line %d: error at %c\n", line, *c);
+                              line++;
+                              break;
+                         }
+
+                         int op2 = stack[--idx];
+                         int op1 = stack[--idx];
+
+                         if (*c == '/' && op2 == 0)
+                         {
+                              printf("line %d: error at %c\n", line, '/');
+                              line++;
+                              break;
+                         }
+
+                         stack[idx++] = (*c == '+') ? (op1 + op2) : (*c == '-') ? (op1 - op2)
+                                                                : (*c == '*')   ? (op1 * op2)
+                                                                                : (op1 / op2);
+                    }
+                    else // Invalid character
+                    {
+                         printf("line %d: error at %c\n", line, *c);
+                         line++;
+                         break;
+                    }
+               }
           }
      }
      return 0;
