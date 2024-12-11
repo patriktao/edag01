@@ -61,30 +61,31 @@ int select_nonbasic(struct simplex_t *s)
 {
      int selected_col = -1;
      double max_steepest = -INFINITY;
-     int approx_rows = s->m > 8 ? 8 : s->m; // Approximate only up to 8 rows, otherwise lower
+     int approx_rows = s->m > 6 ? 6 : s->m; // Approximate for up to 6 rows
 
      for (int i = 0; i < s->n; i++)
      {
           if (s->c[i] > EPSILON)
           {
-               double norm_approx = 0.0;
-
-               // Unrolled loop for l^1 norm approximation
+               double norm_approx = 0.0; // Compute the L^1 norm of the column
                int j = 0;
-               int unrolled_rows = approx_rows & ~3; // Process in multiples of 4
-               for (; j < unrolled_rows; j += 4)
+
+               // Unroll the loop for multiples of 4
+               for (; j + 3 < approx_rows; j += 4)
                {
                     norm_approx += fabs(s->a[j][i]) + fabs(s->a[j + 1][i]) +
                                    fabs(s->a[j + 2][i]) + fabs(s->a[j + 3][i]);
                }
+
+               // Handle remaining rows
                for (; j < approx_rows; j++)
-               { // Handle remaining rows
+               {
                     norm_approx += fabs(s->a[j][i]);
                }
 
                if (norm_approx > EPSILON)
-               {                                                         // Avoid division by zero
-                    double steepest_value = fabs(s->c[i]) / norm_approx; // l^1-based steepest
+               {
+                    double steepest_value = fabs(s->c[i]) / norm_approx;
 
                     if (steepest_value > max_steepest)
                     {
@@ -161,6 +162,7 @@ struct node_t *extend(struct node_t *p, int m, int n, double **a, double *b, dou
      q->n = p->n;
      q->h = -1;
      q->a = malloc((q->m + 1) * sizeof(double *));
+
      for (i = 0; i < q->m + 1; i++)
      {
           q->a[i] = malloc((q->n + 1) * sizeof(double));
@@ -290,41 +292,91 @@ void bound(struct node_t *p, struct set_t *h, double *zp, double *x)
      }
 }
 
+#include <float.h>
+
+#define RELIABILITY_THRESHOLD 3
+
+// Structures to store pseudocosts and branch counts
+double *pseudocost_up;
+double *pseudocost_down;
+int *branch_count;
+
+// Initialize pseudocosts and branch counts
+void initialize_branching_data(int num_vars)
+{
+     pseudocost_up = (double *)malloc(num_vars * sizeof(double));
+     pseudocost_down = (double *)malloc(num_vars * sizeof(double));
+     branch_count = (int *)malloc(num_vars * sizeof(int));
+
+     for (int i = 0; i < num_vars; i++)
+     {
+          pseudocost_up[i] = 1.0;   // Default initial pseudocost
+          pseudocost_down[i] = 1.0; // Default initial pseudocost
+          branch_count[i] = 0;      // No branches yet
+     }
+}
+
+void update_pseudocosts(int var, double obj_change_up, double obj_change_down)
+{
+     branch_count[var] += 1;
+     pseudocost_up[var] = (pseudocost_up[var] * (branch_count[var] - 1) + obj_change_up) / branch_count[var];
+     pseudocost_down[var] = (pseudocost_down[var] * (branch_count[var] - 1) + obj_change_down) / branch_count[var];
+}
+
 int branch(struct node_t *q, double z)
 {
-     double min, max;
-
      if (q->z < z)
      {
           return 0;
      }
 
+     int best_var = -1;
+     double best_score = -DBL_MAX;
+
      for (int h = 0; h < q->n; h++)
      {
           if (!is_integer(&q->x[h]))
           {
-               if (q->min[h] == -INFINITY)
-               {
-                    min = 0;
-               }
-               else
-               {
-                    min = q->min[h];
-               }
+               double min = (q->min[h] == -INFINITY) ? 0 : q->min[h];
+               double max = q->max[h];
 
-               max = q->max[h];
-
-               if (floor(q->x[h]) < min || ceil(q->x[h]) > max) // functions defined in math.h
+               if (floor(q->x[h]) < min || ceil(q->x[h]) > max)
                {
                     continue;
                }
 
-               q->h = h;
-               q->xh = q->x[h];
+               double score;
+               if (branch_count[h] >= RELIABILITY_THRESHOLD)
+               {
+                    // Use pseudocosts to estimate impact
+                    score = pseudocost_up[h] + pseudocost_down[h];
+               }
+               else
+               {
+                    // Use strong branching to estimate impact
+                    double obj_change_up = fabs(q->z - floor(q->x[h]));
+                    double obj_change_down = fabs(q->z - ceil(q->x[h]));
+                    score = obj_change_up + obj_change_down;
 
-               return 1;
+                    // Update pseudocosts for future reliability
+                    update_pseudocosts(h, obj_change_up, obj_change_down);
+               }
+
+               if (score > best_score)
+               {
+                    best_score = score;
+                    best_var = h;
+               }
           }
      }
+
+     if (best_var != -1)
+     {
+          q->h = best_var;
+          q->xh = q->x[best_var];
+          return 1;
+     }
+
      return 0;
 }
 
@@ -332,36 +384,37 @@ void add(struct set_t *h, struct node_t *p)
 {
      int i;
 
-     // if there is place, allocate
-     if (h->count < h->alloc)
-     {
-          for (i = 0; i < h->alloc; i++)
-          {
-               /* Find the first place that is not null and add */
-               if ((h->nodes)[i] == NULL)
-               {
-                    h->nodes[i] = p;
-                    h->count++;
-                    return;
-               }
-          }
-     }
-     else
+     // check if reallocation is needed
+     if (h->count >= h->alloc)
      {
           // Allocate on more place size
           h->alloc *= 2;
-          h->nodes = (struct node_t **)realloc(h->nodes, h->alloc * sizeof(struct node_t *));
+          struct node_t **new_nodes = (struct node_t **)realloc(h->nodes, h->alloc * sizeof(struct node_t *));
+          h->nodes = new_nodes;
 
           // initialize the newly allocated
-          for (i = h->count; i < h->alloc; i++)
-          {
-               h->nodes[i] = NULL;
-          }
+          memset(&h->nodes[h->count], 0, (h->alloc - h->count) * sizeof(struct node_t *));
 
           // Add the new node and update count
-          h->nodes[h->count] = p;
-          h->count++;
+          // h->nodes[h->count++] = p;
      }
+
+     for (i = 0; i < h->alloc; i++)
+     {
+          if ((h->nodes)[i] == NULL)
+          {
+               h->nodes[i] = p;
+               h->count++;
+               return;
+          }
+     }
+}
+
+void free_branching_data()
+{
+     free(pseudocost_up);
+     free(pseudocost_down);
+     free(branch_count);
 }
 
 void succ(struct node_t *p, struct set_t *h, int m, int n, double **a, double *b, double *c, int k, double ak, double bk, double *zp, double *x)
@@ -431,6 +484,8 @@ void free_set(struct set_t *h)
 
 double intopt(int m, int n, double **a, double *b, double *c, double *x)
 {
+     initialize_branching_data(n);
+
      struct node_t *p = initial_node(m, n, a, b, c);
      struct set_t *h = create_set(p);
 
@@ -441,13 +496,13 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x)
      if (integer(p) || !isfinite(p->z))
      {
           z = p->z;
-
           if (integer(p))
           {
                memcpy(x, p->x, (p->n + 1) * sizeof(double));
           }
           delete_node(p);
           free_set(h);
+          free_branching_data(); // Free branching data
           return z;
      }
 
@@ -462,15 +517,9 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x)
      }
 
      free_set(h);
+     free_branching_data(); // Free branching data
 
-     if (z == -INFINITY)
-     {
-          return NAN;
-     }
-     else
-     {
-          return z;
-     }
+     return (z == -INFINITY) ? NAN : z;
 }
 
 int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, double *x, double y, int *var)
@@ -507,26 +556,27 @@ int init(struct simplex_t *s, int m, int n, double **a, double *b, double *c, do
 
 void pivot(struct simplex_t *restrict s, int row, int col)
 {
-     double **restrict a = s->a;
-     double *restrict b = s->b;
-     double *restrict c = s->c;
-     int m = s->m, n = s->n;
+     double **a = s->a;
+     double *b = s->b;
+     double *c = s->c;
+     int m = s->m;
+     int n = s->n;
 
-     // avoid rendundancy
+     // Cache pivot-related values
      double pivotValue = a[row][col];
      double pivotInv = 1.0 / pivotValue;
      double cCol = c[col];
      double bRow = b[row];
 
-     // Update objective value
-     s->y += cCol * bRow * pivotInv;
-
-     // Update variable indices
+     // Swap variable indices
      int tmp = s->var[col];
      s->var[col] = s->var[n + row];
      s->var[n + row] = tmp;
 
-     // update c
+     // Update objective value
+     s->y += cCol * bRow * pivotInv;
+
+     // Update c vector with unrolling
      for (int i = 0; i < n; i += 4)
      {
           if (i != col)
@@ -540,7 +590,7 @@ void pivot(struct simplex_t *restrict s, int row, int col)
      }
      c[col] = -cCol * pivotInv;
 
-     // Update a and b simultaneously
+     // Update rows other than the pivot row with unrolling
      for (int i = 0; i < m; i++)
      {
           if (i != row)
@@ -548,39 +598,23 @@ void pivot(struct simplex_t *restrict s, int row, int col)
                double factor = a[i][col] * pivotInv;
                b[i] -= factor * bRow;
 
-               // Unroll loop for j < col
-               int unrolled_col = col & ~3; // Align to multiple of 4
-               for (int j = 0; j < unrolled_col; j += 4)
+               // Unroll loop for updating a[i][j]
+               for (int j = 0; j < n; j += 4)
                {
-                    a[i][j] -= factor * a[row][j];
-                    a[i][j + 1] -= factor * a[row][j + 1];
-                    a[i][j + 2] -= factor * a[row][j + 2];
-                    a[i][j + 3] -= factor * a[row][j + 3];
+                    if (j != col)
+                         a[i][j] -= factor * a[row][j];
+                    if (j + 1 < n && (j + 1) != col)
+                         a[i][j + 1] -= factor * a[row][j + 1];
+                    if (j + 2 < n && (j + 2) != col)
+                         a[i][j + 2] -= factor * a[row][j + 2];
+                    if (j + 3 < n && (j + 3) != col)
+                         a[i][j + 3] -= factor * a[row][j + 3];
                }
-               for (int j = unrolled_col; j < col; j++)
-               { // Handle remainder
-                    a[i][j] -= factor * a[row][j];
-               }
-
-               // Unroll loop for j > col
-               int unrolled_n = (n - col - 1) & ~3; // Align to multiple of 4
-               for (int j = col + 1; j < col + 1 + unrolled_n; j += 4)
-               {
-                    a[i][j] -= factor * a[row][j];
-                    a[i][j + 1] -= factor * a[row][j + 1];
-                    a[i][j + 2] -= factor * a[row][j + 2];
-                    a[i][j + 3] -= factor * a[row][j + 3];
-               }
-               for (int j = col + 1 + unrolled_n; j < n; j++)
-               { // Handle remainder
-                    a[i][j] -= factor * a[row][j];
-               }
-
                a[i][col] = -factor;
           }
      }
 
-     // Update a[row][i] and b[row]
+     // Update pivot row with unrolling
      for (int j = 0; j < n; j += 4)
      {
           if (j != col)
@@ -607,15 +641,23 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
           return NAN;
      }
 
+     // Loop until no non-basic column is found
      while ((col = select_nonbasic(&s)) >= 0)
      {
           row = -1;
+          double min_ratio = INFINITY;
 
+          // Find the pivot row efficiently
           for (i = 0; i < m; i++)
           {
-               if (a[i][col] > EPSILON && (row < 0 || b[i] / a[i][col] < b[row] / a[row][col]))
+               if (a[i][col] > EPSILON)
                {
-                    row = i;
+                    double ratio = b[i] / a[i][col];
+                    if (ratio < min_ratio)
+                    {
+                         min_ratio = ratio;
+                         row = i;
+                    }
                }
           }
 
@@ -624,28 +666,26 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x, doubl
                free(s.var);
                return INFINITY;
           }
-
           pivot(&s, row, col);
      }
 
      if (h == 0)
      {
-          for (i = 0; i < n + m; i++)
+          memset(x, 0, n * sizeof(double)); // Set non-basic variables to 0
+
+          for (i = n; i < n + m; i++)
           {
                int var_idx = s.var[i];
                if (var_idx < n)
                {
-                    x[var_idx] = (i < n) ? 0 : s.b[i - n];
+                    x[var_idx] = s.b[i - n];
                }
           }
           free(s.var);
      }
      else
      {
-          for (i = 0; i < n; i++)
-          {
-               x[i] = 0;
-          }
+          memset(x, 0, n * sizeof(double)); // Set non-basic variables to 0
           for (i = n; i < n + m; i++)
           {
                x[i] = s.b[i - n];
